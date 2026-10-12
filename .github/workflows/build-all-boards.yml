@@ -152,12 +152,28 @@ jobs:
             cp "$OUT/firmware.factory.bin" "SpoolmanScale-${BOARD}_${VERSION}_factory.bin"
           done
       - name: Update the public web flasher
-        # Public tags only. An internal beta.N build would otherwise switch the
-        # flasher on the docs page to a test version that nobody outside the
-        # test should be offered.
-        if: "!contains(github.ref_name, '-beta.')"
+        # On every release, the ones with a beta counter included. Upstream
+        # holds those back from its flasher, where they are internal builds.
+        # This fork has published nothing else so far, and a board whose first
+        # flash goes through the flasher needs an image in it.
+        env:
+          OTHER_BOARDS: waveshare-s3-lcd7
         run: |
           VERSION=${{ steps.version.outputs.version }}
+          # Every board is flashed with the same bootloader, partition table
+          # and otadata, kept once in webflasher/. Only the firmware is its
+          # own. A board that stops sharing them must get its own files and
+          # its own paths in manifest-<board>.json before it is released.
+          for BOARD in $OTHER_BOARDS; do
+            for PART in bootloader.bin partitions.bin; do
+              if ! cmp -s ".pio/build/${{ matrix.env }}/$PART" ".pio/build/$BOARD/$PART"; then
+                echo "::error::$BOARD has its own $PART, the web flasher shares one between the boards"
+                exit 1
+              fi
+            done
+            cp "SpoolmanScale-$BOARD.bin" "webflasher/SpoolmanScale-$BOARD.bin"
+            sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "manifest-$BOARD.json"
+          done
           cp .pio/build/${{ matrix.env }}/bootloader.bin webflasher/bootloader.bin
           cp .pio/build/${{ matrix.env }}/partitions.bin  webflasher/partitions.bin
           # otadata, blank: boots app0 after a flash. Without it a device that
@@ -255,10 +271,8 @@ jobs:
           VERSION=${{ steps.version.outputs.version }}
           mkdir -p /tmp/ci-out/webflasher
           cp version.json /tmp/ci-out/
-          if [ -z "$(echo "$VERSION" | grep -E -- '-beta\.[0-9]+$')" ]; then
-            cp manifest.json index.html /tmp/ci-out/
-            cp webflasher/bootloader.bin webflasher/partitions.bin webflasher/boot_app0.bin webflasher/SpoolmanScale.bin /tmp/ci-out/webflasher/
-          fi
+          cp manifest.json manifest-*.json index.html /tmp/ci-out/
+          cp webflasher/bootloader.bin webflasher/partitions.bin webflasher/boot_app0.bin webflasher/SpoolmanScale.bin webflasher/SpoolmanScale-*.bin /tmp/ci-out/webflasher/
 
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -273,12 +287,12 @@ jobs:
 
           cp /tmp/ci-out/version.json version.json
           git add version.json
-          if [ -f /tmp/ci-out/manifest.json ]; then
-            cp /tmp/ci-out/manifest.json manifest.json
-            cp /tmp/ci-out/index.html index.html
-            cp /tmp/ci-out/webflasher/*.bin webflasher/
-            git add manifest.json index.html webflasher/bootloader.bin webflasher/partitions.bin webflasher/boot_app0.bin webflasher/SpoolmanScale.bin
-          fi
+          cp /tmp/ci-out/manifest*.json .
+          cp /tmp/ci-out/index.html index.html
+          cp /tmp/ci-out/webflasher/*.bin webflasher/
+          # -f: .gitignore lists what the repository carries, and a new
+          # board's manifest is not on that list.
+          git add -f manifest.json manifest-*.json index.html webflasher/*.bin
 
           git diff --cached --quiet || git commit -m "CI: publish $VERSION"
           git push origin ci-main:main

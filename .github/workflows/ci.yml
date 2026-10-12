@@ -6,9 +6,9 @@ name: CI
 on:
   push:
     branches: [dev, main, 'feature/**', 'fix/**', 'feat/**']
-    paths-ignore: ['manifest.json', 'index.html', 'version.json', 'webflasher/**', 'images/**', '*.md']
+    paths-ignore: ['manifest.json', 'manifest-*.json', 'index.html', 'version.json', 'webflasher/**', 'images/**', '*.md']
   pull_request:
-    paths-ignore: ['manifest.json', 'index.html', 'version.json', 'webflasher/**', 'images/**', '*.md']
+    paths-ignore: ['manifest.json', 'manifest-*.json', 'index.html', 'version.json', 'webflasher/**', 'images/**', '*.md']
 
 concurrency:
   group: ci-${{ github.ref }}

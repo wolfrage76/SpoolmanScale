@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/png" href="images/favicon.png">
   <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
-  <title>SpoolmanScale – Web Flasher</title>
+  <title>Waveshare Spoolman Scale – Web Flasher</title>
   <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -45,6 +45,55 @@
       font-size: 15px;
       margin-bottom: 40px;
     }
+
+    /* The board comes first: each has its own firmware. */
+    .boards {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .boards button {
+      flex: 1;
+      background: #080d1a;
+      color: #4a6fa0;
+      border: 1px solid #1a3060;
+      border-radius: 10px;
+      padding: 12px 10px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      line-height: 1.4;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .boards button small {
+      display: block;
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    .boards button:hover {
+      color: #c8d8f0;
+    }
+
+    .boards button[aria-pressed="true"] {
+      background: #1a3020;
+      color: #40c080;
+      border-color: #2a5030;
+    }
+
+    .boards-label {
+      color: #c8d8f0;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+      text-align: left;
+    }
+
+    [data-board][hidden] { display: none; }
 
     .steps {
       text-align: left;
@@ -154,14 +203,30 @@
 <body>
   <div class="card">
     <img src="images/logo_trans_4.png" alt="SpoolmanScale Logo" width="150" height="150" style="margin-bottom: 16px; border-radius: 12px;">
-    <div class="logo">SpoolmanScale</div>
-    <div class="tagline">Filament Scale with NFC &amp; Spoolman Integration</div>
+    <div class="logo">Waveshare Spoolman Scale</div>
+    <div class="tagline">SpoolmanScale for more than one board &middot; a fork of Niko11111/SpoolmanScale</div>
+
+    <div class="boards-label">1. Which board do you have?</div>
+    <div class="boards" role="group" aria-label="Board">
+      <button type="button" data-pick="waveshare-s3-lcd7" data-manifest="manifest-waveshare-s3-lcd7.json" aria-pressed="true">
+        Waveshare 7"<small>ESP32-S3-Touch-LCD-7, 800&times;480</small>
+      </button>
+      <button type="button" data-pick="wt32-sc01-plus" data-manifest="manifest.json" aria-pressed="false">
+        WT32-SC01 Plus<small>3.5", 480&times;320</small>
+      </button>
+    </div>
+
+    <div class="warning" id="wrong-board">
+      <strong>⚠ The firmware only runs on the board it was built for</strong>
+      The wrong one shows no picture. Pick the right board here and flash again.
+    </div>
 
     <div class="steps">
-      <h3>Before Flashing</h3>
+      <h3>2. Before Flashing</h3>
       <ol>
-        <li>Connect <span>USB cable</span> to PC</li>
-        <li>Disconnect debug board <span>(ZXACC-ESPDB)</span></li>
+        <li data-board="waveshare-s3-lcd7">Connect a <span>USB cable</span> to the connector labelled <span>USB</span>, not the one labelled UART</li>
+        <li data-board="wt32-sc01-plus" hidden>Connect <span>USB cable</span> to PC</li>
+        <li data-board="wt32-sc01-plus" hidden>Disconnect debug board <span>(ZXACC-ESPDB)</span></li>
         <li>Click <span>"Install"</span> below. A scale that is already running SpoolmanScale is offered <span>"Update"</span> instead.</li>
         <li>Select port &amp; confirm</li>
         <li>After flashing: enter your <span>WiFi</span> right in the browser, or skip this and set it up on the scale later, on the touchscreen or with your phone.</li>
@@ -176,7 +241,7 @@
       Only tick it if you want a clean start.
     </div>
 
-    <esp-web-install-button manifest="manifest.json">
+    <esp-web-install-button id="install" manifest="manifest-waveshare-s3-lcd7.json">
       <span slot="unsupported">
         This browser does not support WebUSB.<br>
         Please use <strong>Chrome</strong> or <strong>Edge</strong>.
@@ -191,20 +256,54 @@
       <summary>Flashing fails with "Failed to initialize"?</summary>
       Close anything else that uses the USB port (Arduino IDE, a slicer, a second
       flasher tab) and use a data cable plugged straight into the computer, no hub.
-      Still failing: use the two small buttons on the back of the display board.
+      Still failing: use the two small buttons on the board, <b>BOOT</b> and
+      <b>RST</b> (labelled <b>RESET</b> on the Waveshare).
       Hold <b>BOOT</b>, press and release <b>RST</b>, release <b>BOOT</b>, then
       click the button again and pick the port. Press <b>RST</b> once when
       flashing is done.
     </details>
 
     <div class="links">
-      <a href="https://github.com/Niko11111/SpoolmanScale" target="_blank">GitHub</a>
-      <a href="https://github.com/Niko11111/SpoolmanScale/releases" target="_blank">Releases</a>
-      <a href="https://ko-fi.com/formfollowsfunction" target="_blank">Ko-fi ☕</a>
-      <a href="https://discord.gg/xadskCrPFu" target="_blank">Discord</a>
+      <a href="https://github.com/wolfrage76/Waveshare-Spoolman-Scale" target="_blank">GitHub</a>
+      <a href="https://github.com/wolfrage76/Waveshare-Spoolman-Scale/releases" target="_blank">Releases</a>
+      <a href="https://github.com/wolfrage76/Waveshare-Spoolman-Scale/blob/main/BUILDING.md#other-boards" target="_blank">Wiring</a>
+      <a href="https://github.com/Niko11111/SpoolmanScale" target="_blank">Original project</a>
+      <a href="https://ko-fi.com/formfollowsfunction" target="_blank">Its author's Ko-fi ☕</a>
     </div>
 
-    <div class="version">Firmware v0.8.2 &nbsp;·&nbsp; ESP32-S3</div>
+    <div class="version">Firmware v0.8.3-beta.51 &nbsp;·&nbsp; ESP32-S3</div>
   </div>
+  <script>
+    // The board decides the manifest and which of the steps are shown. The
+    // choice is kept in the address, so a link can point at one board.
+    (function () {
+      var install = document.getElementById('install');
+      var picks = document.querySelectorAll('.boards button');
+      function choose(board) {
+        var found = false;
+        picks.forEach(function (b) {
+          var on = b.dataset.pick === board;
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+          if (on) {
+            found = true;
+            install.setAttribute('manifest', b.dataset.manifest);
+            install.manifest = b.dataset.manifest;
+          }
+        });
+        if (!found) return false;
+        document.querySelectorAll('[data-board]').forEach(function (el) {
+          el.hidden = el.dataset.board !== board;
+        });
+        return true;
+      }
+      picks.forEach(function (b) {
+        b.addEventListener('click', function () {
+          choose(b.dataset.pick);
+          history.replaceState(null, '', '#' + b.dataset.pick);
+        });
+      });
+      if (!choose(location.hash.slice(1))) choose('waveshare-s3-lcd7');
+    })();
+  </script>
 </body>
 </html>

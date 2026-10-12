@@ -1,0 +1,30 @@
+{
+  "name": "SpoolmanScale",
+  "version": "v0.8.3-beta.51",
+  "home_assistant_domain": null,
+  "funding_url": "https://ko-fi.com/formfollowsfunction",
+  "new_install_prompt_erase": true,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        {
+          "path": "webflasher/bootloader.bin",
+          "offset": 0
+        },
+        {
+          "path": "webflasher/partitions.bin",
+          "offset": 32768
+        },
+        {
+          "path": "webflasher/boot_app0.bin",
+          "offset": 57344
+        },
+        {
+          "path": "webflasher/SpoolmanScale-waveshare-s3-lcd7.bin",
+          "offset": 65536
+        }
+      ]
+    }
+  ]
+}

@@ -62,7 +62,7 @@
 // the old table, a downgrade. Set to 1 in the release commit and leave it.
 #define FLASHER_HAS_CURRENT_LAYOUT  1
 // The public web flasher, where the hint sends a device on the old layout.
-#define FLASHER_URL "https://niko11111.github.io/SpoolmanScale/"
+#define FLASHER_URL "https://wolfrage76.github.io/Waveshare-Spoolman-Scale/"
 
 // The two chips on I2C_EXT. Named because a bare 0x2A stood in three files and
 // meant nothing to anyone reading a bus scan.
