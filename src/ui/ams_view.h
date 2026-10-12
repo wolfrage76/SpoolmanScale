@@ -57,6 +57,14 @@ bool isAmsViewOpen();
 // is only half an address, and the view is what resolved the other half.
 int amsViewPrinterId();
 
+// The words this page uses, for another drawing of the same AMS: a unit's
+// name ("AMS 2", "AMS HT 1", the name given on the server), how it feels and
+// whether it dries ("33 %   24.5 C"), and what the printer is doing without
+// its name ("Printing 43 %"). One wording and one translation for both.
+void amsViewUnitName(const AmsSlotUnit& unit, char* out, size_t n);
+void amsViewClimateLine(const AmsSlotUnit& unit, char* out, size_t n);
+void amsViewPrinterLine(const AmsSlotState& st, char* out, size_t n);
+
 // Hides the page without freeing it, for hideAllOverlays(). Every other
 // overlay is treated the same way there: hidden on the way past, freed in
 // showMainScreen(). An overlay in neither list stays on screen while the

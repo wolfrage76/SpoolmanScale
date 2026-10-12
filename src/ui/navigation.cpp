@@ -9,6 +9,7 @@
 
 #include "hardware/display_power.h"
 #include "hardware/sd_logger.h"
+#include "ui/ams_board.h"
 #include "ui/ams_view.h"
 #include "ui/ble_devices_screen.h"
 #include "ui/bluetooth_screen.h"
@@ -98,6 +99,9 @@ void hideAllOverlays() {
   hideSpoolFlowOverlays();
   hideMoreInfoOverlays();
   hideAmsViewOverlays();
+  // Not hidden but taken down: it is the one page at the panel's own
+  // resolution, and nothing else can be shown until the display is back.
+  destroyAmsBoard();
   webPinScreenHide();
   hideLanguageScreen();
   // The dialogs that used to be locals of whichever callback built them, so
@@ -179,6 +183,7 @@ void showMainScreen() {
   if (scr_filaman_options) { lv_obj_del(scr_filaman_options); scr_filaman_options = nullptr; }
   if (scr_ams_assign)      { lv_obj_del(scr_ams_assign);      scr_ams_assign      = nullptr; }
   destroyAmsView();
+  destroyAmsBoard();
   if (scr_filaman_fields)  { lv_obj_del(scr_filaman_fields);  scr_filaman_fields  = nullptr; }
   if (s_ams_numpad_scr)    { lv_obj_del(s_ams_numpad_scr);    s_ams_numpad_scr    = nullptr; }
   s_ams_numpad_lbl = nullptr;

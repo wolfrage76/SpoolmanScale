@@ -3623,6 +3623,11 @@ const char* const STRINGS[][3] = {
   { "Öffnen",
     "Open",
     "Ouvrir" },  // STR_W_OPEN
+
+  // The AMS board: its title, a name that stays as it is in every language,
+  // and the line in the middle of the page until the server has answered
+  { "AMS View", "AMS View", "AMS View" },  // STR_AMSB_TITLE
+  { "Verbinde mit FilaMan", "Linking to FilaMan", "Connexion à FilaMan" },  // STR_AMSB_LINKING
 };
 
 StringID tagWriteResultString(uint8_t code) {

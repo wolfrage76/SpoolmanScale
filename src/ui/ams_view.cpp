@@ -13,6 +13,7 @@
 #include "services/http_progress.h"
 #include "services/server_reach.h"
 #include "services/prefs_store.h"
+#include "ui/ams_board.h"
 #include "ui/ams_detail_popup.h"
 #include "ui/loading_overlay.h"
 #include "ui/navigation.h"
@@ -495,6 +496,53 @@ static lv_obj_t* buildTile(lv_obj_t* parent, const AmsSlotUnit& unit,
   return tile;
 }
 
+// What a unit's header says on the right, in one line. Also what the board
+// at the panel's own resolution shows, see amsViewClimateLine().
+static void unitClimateLine(const AmsSlotUnit& unit, char* line, size_t n) {
+  // The right hand side: how the unit feels, and while a cycle runs what it
+  // is doing as well. Drying leads and the climate follows it rather than
+  // being replaced - a heated unit is exactly when its own temperature is
+  // worth reading.
+  char right[40] = "";
+  if (unit.humidity != AMS_HUMIDITY_NA) {
+    char fmt[16];
+    copyT(fmt, sizeof(fmt), unit.humidity_is_level ? STR_AMSV_HUM_LEVEL : STR_AMSV_HUM_PCT);
+    snprintf(right, sizeof(right), fmt, (int)unit.humidity);
+  }
+  if (unit.temp_c10 != AMS_TEMP_NA) {
+    char tmp[16];
+    snprintf(tmp, sizeof(tmp), "%s%d.%d °C", right[0] ? "   " : "",
+             unit.temp_c10 / 10, abs(unit.temp_c10 % 10));
+    strncat(right, tmp, sizeof(right) - strlen(right) - 1);
+  }
+
+  line[0] = '\0';
+  if (unit.drying) {
+    // Only the figures the printer really reported. An AMS HT sends the
+    // minutes left and no target temperature at all, and printing it anyway
+    // put the sentinel on the screen as "Trocknet -1 °C, 674 min".
+    char dfmt[40], dbuf[48];
+    const bool with_time = (unit.dry_minutes > 0);
+    const bool with_temp = (unit.dry_target_c > 0);
+    if (with_temp && with_time) {
+      copyT(dfmt, sizeof(dfmt), STR_AMSV_DRYING_TIME);
+      snprintf(dbuf, sizeof(dbuf), dfmt, (int)unit.dry_target_c,
+               (int)unit.dry_minutes);
+    } else if (with_temp) {
+      copyT(dfmt, sizeof(dfmt), STR_AMSV_DRYING_TEMP);
+      snprintf(dbuf, sizeof(dbuf), dfmt, (int)unit.dry_target_c);
+    } else if (with_time) {
+      copyT(dfmt, sizeof(dfmt), STR_AMSV_DRYING_MIN);
+      snprintf(dbuf, sizeof(dbuf), dfmt, (int)unit.dry_minutes);
+    } else {
+      copyT(dbuf, sizeof(dbuf), STR_AMSV_DRYING);
+    }
+    snprintf(line, n, "%s%s%s", dbuf, right[0] ? "   " : "", right);
+  } else {
+    snprintf(line, n, "%s", right);
+  }
+}
+
 // The line above a unit's bays: what it is called on the left, how it feels
 // on the right.
 static void buildUnitHeader(lv_obj_t* parent, const AmsSlotUnit& unit,
@@ -520,48 +568,8 @@ static void buildUnitHeader(lv_obj_t* parent, const AmsSlotUnit& unit,
   lv_obj_set_style_text_font(l, &lv_font_montserrat_ext_12, 0);
   lv_obj_set_pos(l, AMSV_MARGIN, y);
 
-  // The right hand side: how the unit feels, and while a cycle runs what it
-  // is doing as well. Drying leads and the climate follows it rather than
-  // being replaced - a heated unit is exactly when its own temperature is
-  // worth reading.
-  char right[40] = "";
-  if (unit.humidity != AMS_HUMIDITY_NA) {
-    char fmt[16];
-    copyT(fmt, sizeof(fmt), unit.humidity_is_level ? STR_AMSV_HUM_LEVEL : STR_AMSV_HUM_PCT);
-    snprintf(right, sizeof(right), fmt, (int)unit.humidity);
-  }
-  if (unit.temp_c10 != AMS_TEMP_NA) {
-    char tmp[16];
-    snprintf(tmp, sizeof(tmp), "%s%d.%d °C", right[0] ? "   " : "",
-             unit.temp_c10 / 10, abs(unit.temp_c10 % 10));
-    strncat(right, tmp, sizeof(right) - strlen(right) - 1);
-  }
-
   char line[96] = "";
-  if (unit.drying) {
-    // Only the figures the printer really reported. An AMS HT sends the
-    // minutes left and no target temperature at all, and printing it anyway
-    // put the sentinel on the screen as "Trocknet -1 °C, 674 min".
-    char dfmt[40], dbuf[48];
-    const bool with_time = (unit.dry_minutes > 0);
-    const bool with_temp = (unit.dry_target_c > 0);
-    if (with_temp && with_time) {
-      copyT(dfmt, sizeof(dfmt), STR_AMSV_DRYING_TIME);
-      snprintf(dbuf, sizeof(dbuf), dfmt, (int)unit.dry_target_c,
-               (int)unit.dry_minutes);
-    } else if (with_temp) {
-      copyT(dfmt, sizeof(dfmt), STR_AMSV_DRYING_TEMP);
-      snprintf(dbuf, sizeof(dbuf), dfmt, (int)unit.dry_target_c);
-    } else if (with_time) {
-      copyT(dfmt, sizeof(dfmt), STR_AMSV_DRYING_MIN);
-      snprintf(dbuf, sizeof(dbuf), dfmt, (int)unit.dry_minutes);
-    } else {
-      copyT(dbuf, sizeof(dbuf), STR_AMSV_DRYING);
-    }
-    snprintf(line, sizeof(line), "%s%s%s", dbuf, right[0] ? "   " : "", right);
-  } else {
-    snprintf(line, sizeof(line), "%s", right);
-  }
+  unitClimateLine(unit, line, sizeof(line));
 
   if (!line[0]) return;
 
@@ -937,6 +945,42 @@ static PrinterActivity printerActivity(const char* st) {
   return PRINTER_OTHER;
 }
 
+// What the printer is doing, without its name: offline, a job, a state, or
+// nothing at all.
+static void printerLine(const AmsSlotState& st, char* what, size_t n) {
+  what[0] = '\0';
+  const PrinterActivity act = printerActivity(st.state);
+  if (!st.connected) {
+    // An offline printer still has a last known state worth showing, so
+    // this is a note next to the grid rather than a refusal to draw it.
+    // A backend that never said either way gets its own wording: blaming
+    // the printer for a driver that has not reported sends the user to
+    // the wrong machine.
+    copyT(what, n, st.conn_known ? STR_AMSV_OFFLINE : STR_AMSV_UNKNOWN);
+  } else if (st.job_percent >= 0 &&
+             (act == PRINTER_PRINTING || act == PRINTER_PAUSED)) {
+    // The percentage only while it means something. Bambu reports the
+    // finished job and its 100 % until the next print starts, and FilaMan
+    // passes that through, so a printer that finished two days ago read
+    // "printing 100%" the whole time.
+    char fmt[24];
+    copyT(fmt, sizeof(fmt), act == PRINTER_PAUSED ? STR_AMSV_JOB_PAUSED : STR_AMSV_JOB);
+    snprintf(what, n, fmt, (int)st.job_percent);
+  } else if (act == PRINTER_FINISHED) {
+    copyT(what, n, STR_AMSV_STATE_FINISH);
+  } else if (act == PRINTER_FAILED) {
+    copyT(what, n, STR_AMSV_STATE_FAILED);
+  } else if (act == PRINTER_IDLE) {
+    copyT(what, n, STR_AMSV_STATE_IDLE);
+  } else if (act == PRINTER_PREPARING) {
+    copyT(what, n, STR_AMSV_STATE_PREPARE);
+  } else if (st.state[0]) {
+    // A state this list does not know is shown as the server wrote it,
+    // rather than hidden.
+    snprintf(what, n, "%s", st.state);
+  }
+}
+
 // Fills the page. Blocks for the length of the request, so the screen is
 // drawn first and pumped, and the screen is checked again afterwards: the
 // user can have tapped back during those milliseconds.
@@ -1001,36 +1045,7 @@ static void fetchAndDraw() {
     // What the printer is doing, without its name: offline, a job, a state,
     // or nothing at all.
     char what[48] = "";
-    const PrinterActivity act = printerActivity(s_state.state);
-    if (!s_state.connected) {
-      // An offline printer still has a last known state worth showing, so
-      // this is a note next to the grid rather than a refusal to draw it.
-      // A backend that never said either way gets its own wording: blaming
-      // the printer for a driver that has not reported sends the user to
-      // the wrong machine.
-      copyT(what, sizeof(what), s_state.conn_known ? STR_AMSV_OFFLINE : STR_AMSV_UNKNOWN);
-    } else if (s_state.job_percent >= 0 &&
-               (act == PRINTER_PRINTING || act == PRINTER_PAUSED)) {
-      // The percentage only while it means something. Bambu reports the
-      // finished job and its 100 % until the next print starts, and FilaMan
-      // passes that through, so a printer that finished two days ago read
-      // "printing 100%" the whole time.
-      char fmt[24];
-      copyT(fmt, sizeof(fmt), act == PRINTER_PAUSED ? STR_AMSV_JOB_PAUSED : STR_AMSV_JOB);
-      snprintf(what, sizeof(what), fmt, (int)s_state.job_percent);
-    } else if (act == PRINTER_FINISHED) {
-      copyT(what, sizeof(what), STR_AMSV_STATE_FINISH);
-    } else if (act == PRINTER_FAILED) {
-      copyT(what, sizeof(what), STR_AMSV_STATE_FAILED);
-    } else if (act == PRINTER_IDLE) {
-      copyT(what, sizeof(what), STR_AMSV_STATE_IDLE);
-    } else if (act == PRINTER_PREPARING) {
-      copyT(what, sizeof(what), STR_AMSV_STATE_PREPARE);
-    } else if (s_state.state[0]) {
-      // A state this list does not know is shown as the server wrote it,
-      // rather than hidden.
-      snprintf(what, sizeof(what), "%s", s_state.state);
-    }
+    printerLine(s_state, what, sizeof(what));
 
     // With two or more printers the name is the switch, and looks like one:
     // the same chip as "reload", holding "2/3  P1S" so it also says where in
@@ -1250,7 +1265,10 @@ static void openDetail(int ams_id, int tray_id) {
 void handleAmsViewDeferredActions() {
   if (show_ams_view_pending) {
     show_ams_view_pending = false;
-    requestAmsView(AMS_VIEW_BROWSE);
+    // A panel with room for it shows the whole AMS at its own resolution
+    // first, and this page is one tap further.
+    if (amsBoardAvailable()) requestAmsBoard();
+    else                     requestAmsView(AMS_VIEW_BROWSE);
   }
   if (show_ams_view_scale_pending) {
     show_ams_view_scale_pending = false;
@@ -1342,4 +1360,17 @@ void handleAmsViewDeferredActions() {
     s_weights_redraw = false;
     if (s_scr) layoutGrid(s_state);
   }
+}
+
+// The same words for whoever else draws an AMS, see ams_view.h.
+void amsViewUnitName(const AmsSlotUnit& unit, char* out, size_t n) {
+  unitName(unit, out, n);
+}
+
+void amsViewClimateLine(const AmsSlotUnit& unit, char* out, size_t n) {
+  unitClimateLine(unit, out, n);
+}
+
+void amsViewPrinterLine(const AmsSlotState& st, char* out, size_t n) {
+  printerLine(st, out, n);
 }

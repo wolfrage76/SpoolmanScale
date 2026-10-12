@@ -1660,6 +1660,11 @@ enum StringID {
   STR_W_EMBED_HTTPS,
   STR_W_OPEN,
 
+  // The AMS board: its title, a name that stays as it is in every language,
+  // and the line in the middle of the page until the server has answered
+  STR_AMSB_TITLE,
+  STR_AMSB_LINKING,
+
   STR_COUNT
 };
 

@@ -170,3 +170,15 @@ UiThemeCustom uiThemeCustomActive();
 #define UI_CARD_TEXT_PAD        40   // what the text stays clear of, left and right together
 #define UI_CARD_ROW_X           12   // the answer row's inset, left and right
 #define UI_CARD_ROW_Y          186   // its top, UI_POPUP_BTN_H high
+
+// ---- the AMS board -------------------------------------------
+// The AMS View page (ui/ams_board_view.cpp) takes its colours from the
+// palette like every other screen. Fixed is only what is drawn on a swatch,
+// which has the filament's colour and not the page's: it has to read on that
+// colour in every palette. The bay's name on it uses UI_COL_ON_ACCENT_DARK
+// and UI_COL_ON_ACCENT_LIGHT above.
+#define UI_COL_AMSB_SHINE        0xFFFFFF   // frost, the glass corner, a fibre, a speck
+#define UI_COL_AMSB_SHADE        0x000000   // a fibre's shadow, the line inside a glow
+#define UI_COL_AMSB_SPECK_RING   0x080A12   // what a speck stands in
+#define UI_COL_AMSB_GLOW_FRAME   0xD6FF3A   // chartreuse phosphor rim (FilaMan AMS View)
+#define UI_COL_AMSB_NO_COLOUR    0x202020   // a filament whose colour cannot be read

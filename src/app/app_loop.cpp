@@ -63,6 +63,7 @@
 #include "services/ams_pick.h"
 #include "ui/ams_detail_popup.h"
 #include "ui/status_picker.h"
+#include "ui/ams_board.h"
 #include "ui/ams_view.h"
 #include "services/wifi_manager.h"
 #include "services/wifi_roam.h"
@@ -1013,6 +1014,7 @@ void appLoop() {
   handleMoreInfoDeferredActions();
   handleAmsAssignDeferredActions();
   handleAmsViewDeferredActions();
+  handleAmsBoardDeferredActions();
   handleAmsDetailDeferredActions();
   handleTagViewDeferredActions();
   // A request found no server, see server_reach.h. After every handler above,
