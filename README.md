@@ -6,6 +6,54 @@
 </picture>
 </div>
 
+# Waveshare Spoolman Scale
+
+> [!NOTE]
+> **This is a fork of [Niko11111/SpoolmanScale](https://github.com/Niko11111/SpoolmanScale).** It exists to run SpoolmanScale on boards other than the one the original is built for, first of all the **Waveshare ESP32-S3-Touch-LCD-7**. Everything the original does, this does too: the project, its design and nearly all of its code are Niko's. If you have the WT32-SC01 Plus and no reason to be here, use the original.
+
+## What this fork adds
+
+- **More than one board from one code base.** Everything a board decides (pins, panel, touch, backlight) lives in its own folder under `src/boards/`. The rest of the firmware names no board. How to add one is in [BUILDING.md](BUILDING.md#adding-a-board).
+- **The Waveshare ESP32-S3-Touch-LCD-7** (7", 800×480). It shows the same UI as the WT32-SC01 Plus, enlarged to fill the panel, with every screen and setting. Wiring and what is different on this board: [Other Boards](BUILDING.md#other-boards).
+- **An AMS board for the larger panel.** With FilaMan as the backend, the AMS view opens a page at the panel's full 800×480 that shows every AMS and AMS-HT at once: each bay with its filament colour, material, brand and what is left.
+- **An image per board.** Every release carries one firmware file for each board, and the upload in the browser refuses a file built for another board.
+
+The WT32-SC01 Plus stays supported and is built from the same code.
+
+## Which firmware to use
+
+| You have | Use |
+|---|---|
+| WT32-SC01 Plus | The [original](https://github.com/Niko11111/SpoolmanScale), unless you want something from the list above |
+| Waveshare ESP32-S3-Touch-LCD-7 (800×480) | This fork |
+| Waveshare 7B (1024×600) or another board | Not supported yet |
+
+## Download and updates
+
+Releases are on this repository's [Releases page](https://github.com/wolfrage76/Waveshare-Spoolman-Scale/releases). They are pre-releases for now.
+
+| File | Board | Use |
+|---|---|---|
+| `SpoolmanScale-waveshare-s3-lcd7_<version>_factory.bin` | Waveshare 7" | First flash over USB, written at offset 0, see [BUILDING.md](BUILDING.md#waveshare-esp32-s3-touch-lcd-7) |
+| `SpoolmanScale-waveshare-s3-lcd7_<version>.bin` | Waveshare 7" | Update through the scale's web page |
+| `SpoolmanScale_<version>.bin` | WT32-SC01 Plus | Update through the scale's web page |
+
+The two files without a version in their name are what a scale downloads when it updates itself.
+
+A scale running this fork looks for updates **here**, not at the original project. The original's Web Flasher does not carry the Waveshare image, so the first flash of that board goes over USB.
+
+## How it relates to the original
+
+This fork follows the original's `dev` branch and merges it regularly; version numbers are the original's. The build guide, the enclosure, the documentation site and the Discord further down this page all belong to the original project and describe the WT32-SC01 Plus. There is no printable enclosure for the Waveshare board yet.
+
+Problems with the Waveshare board or with anything in the list above belong to this fork. Please do not report them to the original project.
+
+Licensed under the GPL-3.0, like the original.
+
+---
+
+*What follows is the original project's README.*
+
 # SpoolmanScale
 
 ### *One Scale to rule them all.*
