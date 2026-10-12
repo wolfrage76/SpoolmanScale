@@ -1,8 +1,14 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Manual
+  - name: Original project
+    url: https://github.com/Niko11111/SpoolmanScale/issues
+    about: Anything that is not about this fork - the scale's features, its screens, the WT32-SC01 Plus
+  - name: Manual (original project)
     url: https://niko11111.github.io/SpoolmanScale-Docs/
-    about: Build guide, setup of the backends, calibration and troubleshooting
-  - name: Discord
+    about: Build guide, setup of the backends, calibration and troubleshooting, written for the WT32-SC01 Plus
+  - name: Wiring and flashing the Waveshare board
+    url: https://github.com/wolfrage76/Waveshare-Spoolman-Scale/blob/main/BUILDING.md#other-boards
+    about: What is different on the Waveshare ESP32-S3-Touch-LCD-7
+  - name: Discord (original project)
     url: https://discord.gg/xadskCrPFu
-    about: Questions, help with a setup, show your build
+    about: The original project's community. Say that you run this fork when you ask there

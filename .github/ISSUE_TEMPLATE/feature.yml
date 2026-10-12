@@ -1,7 +1,21 @@
 name: Feature request
-description: An idea for the scale, its display or its web interface
+description: An idea for this fork - another board, the AMS board, the web flasher
 labels: [enhancement]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        This fork adds boards and what a larger panel makes possible. An idea for the scale itself,
+        its screens or its web interface, is better placed with the
+        [original project](https://github.com/Niko11111/SpoolmanScale/issues): it then reaches every board.
+  - type: dropdown
+    id: board
+    attributes:
+      label: Board
+      options:
+        - Waveshare ESP32-S3-Touch-LCD-7
+        - WT32-SC01 Plus
+        - Another board
   - type: textarea
     id: problem
     attributes:
