@@ -35,7 +35,12 @@ DisplayFlushStats displayFlushStatsTake();
 // "psram/40". For the log, so that a timing line says what it was measured on.
 const char* displayDrawBufInfo();
 
-// Takes one row of a captured frame: DISPLAY_W_PX RGB565 pixels and its
+// The size LVGL draws at this moment: DISPLAY_W_PX x DISPLAY_H_PX, or the
+// panel's own while a screen has asked for it with displaySetNative().
+int displayFrameW();
+int displayFrameH();
+
+// Takes one row of a captured frame: displayFrameW() RGB565 pixels and its
 // number from the top. False stops the capture.
 typedef bool (*DisplayRowSink)(const uint16_t* px, int y, void* ctx);
 

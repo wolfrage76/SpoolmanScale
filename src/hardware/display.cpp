@@ -111,7 +111,7 @@ static CaptureState* capture = nullptr;
 
 static void captureStrip(const lv_area_t *area, const lv_color_t *color_p, uint32_t w) {
   if (!capture->ok) return;
-  if (area->x1 != 0 || (int)w != DISPLAY_W_PX || area->y1 != capture->next_row) {
+  if (area->x1 != 0 || (int)w != displayFrameW() || area->y1 != capture->next_row) {
     capture->ok = false;
     return;
   }
@@ -156,7 +156,7 @@ bool displayCaptureFrame(DisplayRowSink sink, void* ctx) {
   lv_obj_invalidate(lv_scr_act());
   lv_refr_now(NULL);
   capture = nullptr;
-  return state.ok && state.next_row == DISPLAY_H_PX;
+  return state.ok && state.next_row == displayFrameH();
 }
 
 static bool (*touch_gesture_hook)(uint8_t points) = nullptr;
@@ -301,6 +301,9 @@ void displayBacklightOn(uint8_t brightness) {
 void displayPrepareDeepSleep() {
   panelPrepareDeepSleep();
 }
+
+int displayFrameW() { return displayIsNative() ? displayNativeW() : DISPLAY_W_PX; }
+int displayFrameH() { return displayIsNative() ? displayNativeH() : DISPLAY_H_PX; }
 
 #ifdef BOARD_NATIVE_W
 int displayNativeW() { return BOARD_NATIVE_W; }

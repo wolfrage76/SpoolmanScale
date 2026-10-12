@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "boards/board.h"
 #include "hardware/display.h"
 
 // Pictures of the display for bug reports and pull requests. Taken from the
@@ -20,11 +21,20 @@ enum ScreenshotSource : uint8_t {
 
 static constexpr int SCREENSHOT_MAX = 6;
 
-// The BMP as screenshotBmpHeader() and screenshotBmpRow() hand it out.
-static constexpr size_t SCREENSHOT_BMP_HEADER_BYTES = 54;
-static constexpr size_t SCREENSHOT_BMP_ROW_BYTES    = (size_t)DISPLAY_W_PX * 3;
-static constexpr size_t SCREENSHOT_BMP_FILE_BYTES   =
-    SCREENSHOT_BMP_HEADER_BYTES + SCREENSHOT_BMP_ROW_BYTES * DISPLAY_H_PX;
+// A picture is as large as the screen it was taken of: DISPLAY_W_PX x
+// DISPLAY_H_PX, or the panel's own size of a screen drawn at that.
+#ifdef BOARD_NATIVE_W
+static constexpr int SCREENSHOT_MAX_W_PX = BOARD_NATIVE_W;
+static constexpr int SCREENSHOT_MAX_H_PX = BOARD_NATIVE_H;
+#else
+static constexpr int SCREENSHOT_MAX_W_PX = DISPLAY_W_PX;
+static constexpr int SCREENSHOT_MAX_H_PX = DISPLAY_H_PX;
+#endif
+
+// The BMP as screenshotBmpHeader() and screenshotBmpRow() hand it out. A row
+// of the widest picture; one of a narrower picture fills the front of it.
+static constexpr size_t SCREENSHOT_BMP_HEADER_BYTES  = 54;
+static constexpr size_t SCREENSHOT_BMP_ROW_MAX_BYTES = (size_t)SCREENSHOT_MAX_W_PX * 3;
 
 struct ScreenshotInfo {
   uint32_t         id;       // from a random start per boot, counting up, never reused
@@ -52,8 +62,9 @@ bool screenshotInfoAt(int index, ScreenshotInfo& out);
 void screenshotDrop(uint32_t id);
 void screenshotDropAll();
 
-// A held picture as a BMP file: the header, then DISPLAY_H_PX rows in file
-// order. BMP stores the bottom row first; screenshotBmpRow() takes care of
-// it. False for an id that is not held.
-void screenshotBmpHeader(uint8_t out[SCREENSHOT_BMP_HEADER_BYTES]);
-bool screenshotBmpRow(uint32_t id, int file_row, uint8_t out[SCREENSHOT_BMP_ROW_BYTES]);
+// A held picture as a BMP file: the header, then h rows of w * 3 bytes in
+// file order, w and h from screenshotSize(). BMP stores the bottom row first;
+// screenshotBmpRow() takes care of it. False for an id that is not held.
+bool screenshotSize(uint32_t id, int& w, int& h);
+bool screenshotBmpHeader(uint32_t id, uint8_t out[SCREENSHOT_BMP_HEADER_BYTES]);
+bool screenshotBmpRow(uint32_t id, int file_row, uint8_t out[SCREENSHOT_BMP_ROW_MAX_BYTES]);

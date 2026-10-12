@@ -115,23 +115,27 @@ String screenshotCard() {
 
 static void sendBmp(WebServer& srv) {
   const uint32_t id = (uint32_t)srv.arg("id").toInt();
-  // Rows leave one at a time, decoded on the way: 1440 bytes, about one TCP
-  // segment, where the whole file would be 450 KB the internal heap lacks.
-  static uint8_t row[SCREENSHOT_BMP_ROW_BYTES];
-  if (!screenshotBmpRow(id, 0, row)) {
+  // Rows leave one at a time, decoded on the way: 1440 bytes of the UI's
+  // 480 pixels, about one TCP segment, where the whole file would be 450 KB
+  // the internal heap lacks. A picture of a screen at the panel's own size
+  // has longer rows and more of them.
+  static uint8_t row[SCREENSHOT_BMP_ROW_MAX_BYTES];
+  uint8_t header[SCREENSHOT_BMP_HEADER_BYTES];
+  int w = 0, h = 0;
+  if (!screenshotSize(id, w, h) || !screenshotBmpHeader(id, header) ||
+      !screenshotBmpRow(id, 0, row)) {
     srv.send(404, "text/plain", "No such screenshot");
     return;
   }
-  uint8_t header[SCREENSHOT_BMP_HEADER_BYTES];
-  screenshotBmpHeader(header);
+  const size_t row_bytes = (size_t)w * 3;
   srv.sendHeader("Cache-Control", "no-store");
-  srv.setContentLength(SCREENSHOT_BMP_FILE_BYTES);
+  srv.setContentLength(sizeof(header) + row_bytes * h);
   srv.send(200, "image/bmp", "");
   srv.sendContent((const char*)header, sizeof(header));
-  srv.sendContent((const char*)row, sizeof(row));
-  for (int r = 1; r < DISPLAY_H_PX; r++) {
+  srv.sendContent((const char*)row, row_bytes);
+  for (int r = 1; r < h; r++) {
     if (!screenshotBmpRow(id, r, row)) break;
-    srv.sendContent((const char*)row, sizeof(row));
+    srv.sendContent((const char*)row, row_bytes);
   }
 }
 

@@ -19,22 +19,28 @@ static constexpr uint32_t SHOT_BLINK_MS = 150;
 // the simulator's catalogue, a picture packs to 47 KB in the median and 76 KB
 // at worst (the diagnostics popup), so six of the worst still fit. A screen
 // busier than any of those pushes out one more of the older pictures.
-static constexpr size_t SHOT_BUDGET_BYTES = SCREENSHOT_MAX * 80 * 1024;
+// A picture of a screen at the panel's own size has that many more pixels,
+// and the budget grows by as much on a board that has such a screen.
+// In 64 bits: the product on the way does not fit in a size_t here.
+static constexpr size_t SHOT_BUDGET_BYTES = (size_t)(
+    (uint64_t)SCREENSHOT_MAX * 80 * 1024 * (SCREENSHOT_MAX_W_PX * SCREENSHOT_MAX_H_PX) /
+    (DISPLAY_W_PX * DISPLAY_H_PX));
+static_assert(SHOT_BUDGET_BYTES >= (size_t)SCREENSHOT_MAX * 80 * 1024, "the budget shrank");
 static constexpr size_t SHOT_GROW_BYTES   = 16 * 1024;
 
 // A picture in memory: the offset of every row first, so a row can be read
 // without decoding the ones before it, then the rows as runs of one colour,
 // each a 16 bit length and a 16 bit RGB565 value. A run never crosses a row.
-static constexpr size_t SHOT_ROW_TABLE_BYTES = DISPLAY_H_PX * sizeof(uint32_t);
 static constexpr size_t SHOT_RUN_BYTES       = 4;
-static constexpr size_t SHOT_ROW_MAX_BYTES   = DISPLAY_W_PX * SHOT_RUN_BYTES;
+static constexpr size_t SHOT_ROW_MAX_BYTES   = SCREENSHOT_MAX_W_PX * SHOT_RUN_BYTES;
 static_assert(SHOT_ROW_MAX_BYTES <= SHOT_GROW_BYTES, "one growth step must hold a row");
 
 static constexpr uint32_t BMP_INFO_HEADER_BYTES = 40;
 static constexpr uint16_t BMP_BITS_PER_PX       = 24;
 static constexpr uint32_t BMP_PX_PER_METRE      = 2835;   // 72 dpi
-// BMP pads every row to four bytes; a row of this width needs none.
-static_assert(SCREENSHOT_BMP_ROW_BYTES % 4 == 0, "BMP rows would need padding");
+// BMP pads every row to four bytes; a row of either width needs none.
+static_assert((DISPLAY_W_PX * 3) % 4 == 0 && SCREENSHOT_BMP_ROW_MAX_BYTES % 4 == 0,
+              "BMP rows would need padding");
 
 struct Shot {
   uint8_t*         buf;
@@ -43,6 +49,8 @@ struct Shot {
   uint32_t         id;
   uint32_t         taken_ms;
   ScreenshotSource source;
+  uint16_t         w;        // the screen as it was drawn, see displayFrameW()
+  uint16_t         h;
 };
 
 static Shot     s_shots[SCREENSHOT_MAX];   // index 0 the oldest
@@ -154,14 +162,14 @@ static bool ensureRoom(Shot& sh, size_t need) {
 // The display's row sink: notes where row y starts, then writes its runs.
 static bool encodeRow(const uint16_t* px, int y, void* ctx) {
   Shot& sh = *(Shot*)ctx;
-  if (!ensureRoom(sh, SHOT_ROW_MAX_BYTES)) return false;
+  if (!ensureRoom(sh, (size_t)sh.w * SHOT_RUN_BYTES)) return false;
   putLe32(sh.buf + (size_t)y * sizeof(uint32_t), (uint32_t)sh.len);
   uint8_t* out = sh.buf + sh.len;
   int x = 0;
-  while (x < DISPLAY_W_PX) {
+  while (x < sh.w) {
     const uint16_t colour = px[x];
     int run = 1;
-    while (x + run < DISPLAY_W_PX && px[x + run] == colour) run++;
+    while (x + run < sh.w && px[x + run] == colour) run++;
     putLe16(out, (uint16_t)run);
     putLe16(out + 2, colour);
     out += SHOT_RUN_BYTES;
@@ -175,9 +183,12 @@ static bool encodeRow(const uint16_t* px, int y, void* ctx) {
 // the budget or PSRAM ran out on the way.
 static bool captureInto(Shot& sh) {
   s_building = &sh;
-  bool ok = ensureRoom(sh, SHOT_ROW_TABLE_BYTES);
+  sh.w = (uint16_t)displayFrameW();
+  sh.h = (uint16_t)displayFrameH();
+  const size_t row_table_bytes = (size_t)sh.h * sizeof(uint32_t);
+  bool ok = ensureRoom(sh, row_table_bytes);
   if (ok) {
-    sh.len = SHOT_ROW_TABLE_BYTES;
+    sh.len = row_table_bytes;
     ok = displayCaptureFrame(encodeRow, &sh);
   }
   s_building = nullptr;
@@ -196,7 +207,7 @@ static bool captureInto(Shot& sh) {
 
 uint32_t screenshotTake(ScreenshotSource src) {
   const uint32_t start_ms = millis();
-  Shot sh = {nullptr, 0, 0, 0, 0, src};
+  Shot sh = {nullptr, 0, 0, 0, 0, src, 0, 0};
   if (!captureInto(sh)) {
     logSDf("Screenshot: capture failed, %d held in %u KB, PSRAM free %u KB", s_count,
            (unsigned)(bytesInUse() / 1024),
@@ -254,20 +265,32 @@ void screenshotDropAll() {
   while (s_count > 0) dropAt(0);
 }
 
-void screenshotBmpHeader(uint8_t out[SCREENSHOT_BMP_HEADER_BYTES]) {
+bool screenshotSize(uint32_t id, int& w, int& h) {
+  const int index = indexOf(id);
+  if (index < 0) return false;
+  w = s_shots[index].w;
+  h = s_shots[index].h;
+  return true;
+}
+
+bool screenshotBmpHeader(uint32_t id, uint8_t out[SCREENSHOT_BMP_HEADER_BYTES]) {
+  int w = 0, h = 0;
+  if (!screenshotSize(id, w, h)) return false;
+  const uint32_t px_bytes = (uint32_t)w * 3 * (uint32_t)h;
   memset(out, 0, SCREENSHOT_BMP_HEADER_BYTES);
   out[0] = 'B';
   out[1] = 'M';
-  putLe32(out + 2,  (uint32_t)SCREENSHOT_BMP_FILE_BYTES);
+  putLe32(out + 2,  (uint32_t)SCREENSHOT_BMP_HEADER_BYTES + px_bytes);
   putLe32(out + 10, (uint32_t)SCREENSHOT_BMP_HEADER_BYTES);   // pixel data offset
   putLe32(out + 14, BMP_INFO_HEADER_BYTES);
-  putLe32(out + 18, (uint32_t)DISPLAY_W_PX);
-  putLe32(out + 22, (uint32_t)DISPLAY_H_PX);                  // positive: bottom row first
+  putLe32(out + 18, (uint32_t)w);
+  putLe32(out + 22, (uint32_t)h);                             // positive: bottom row first
   putLe16(out + 26, 1);                                       // colour planes
   putLe16(out + 28, BMP_BITS_PER_PX);
-  putLe32(out + 34, (uint32_t)(SCREENSHOT_BMP_ROW_BYTES * DISPLAY_H_PX));
+  putLe32(out + 34, px_bytes);
   putLe32(out + 38, BMP_PX_PER_METRE);
   putLe32(out + 42, BMP_PX_PER_METRE);
+  return true;
 }
 
 // RGB565 to the blue, green, red bytes BMP stores. The top bits are repeated
@@ -279,18 +302,18 @@ static void putBgr(uint8_t* out, uint16_t c) {
   out[2] = (uint8_t)((r5 << 3) | (r5 >> 2));
 }
 
-bool screenshotBmpRow(uint32_t id, int file_row, uint8_t out[SCREENSHOT_BMP_ROW_BYTES]) {
+bool screenshotBmpRow(uint32_t id, int file_row, uint8_t out[SCREENSHOT_BMP_ROW_MAX_BYTES]) {
   const int index = indexOf(id);
-  if (index < 0 || file_row < 0 || file_row >= DISPLAY_H_PX) return false;
+  if (index < 0 || file_row < 0 || file_row >= s_shots[index].h) return false;
   const Shot& sh = s_shots[index];
-  const int y = DISPLAY_H_PX - 1 - file_row;
+  const int y = sh.h - 1 - file_row;
   const uint8_t* in = sh.buf + getLe32(sh.buf + (size_t)y * sizeof(uint32_t));
   int x = 0;
-  while (x < DISPLAY_W_PX) {
+  while (x < sh.w) {
     const int run = getLe16(in);
     const uint16_t colour = getLe16(in + 2);
     in += SHOT_RUN_BYTES;
-    if (run == 0 || x + run > DISPLAY_W_PX) return false;
+    if (run == 0 || x + run > sh.w) return false;
     for (int i = 0; i < run; i++) putBgr(out + (x + i) * 3, colour);
     x += run;
   }
