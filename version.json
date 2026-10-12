@@ -1,9 +1,16 @@
 {
   "stable": "v0.8.2",
   "stable_sha256": "e628f19ae539f67212aae08cff955e7e09eebc3d33df5f36bd217f49e3336c3b",
-  "prerelease": "v0.8.2",
-  "prerelease_sha256": "e628f19ae539f67212aae08cff955e7e09eebc3d33df5f36bd217f49e3336c3b",
+  "prerelease": "v0.8.3-beta.51",
+  "prerelease_sha256": "741cc41f75792b42a8cf54e76d0e1b59340103a51f50cd11fd9248489cbfb064",
   "url": "https://github.com/wolfrage76/Waveshare-Spoolman-Scale/releases/latest",
-  "prerelease_size": 3135472,
-  "stable_size": 3135472
+  "prerelease_size": 3334640,
+  "stable_size": 3135472,
+  "boards": {
+    "waveshare-s3-lcd7": {
+      "prerelease": "v0.8.3-beta.51",
+      "prerelease_sha256": "8486ed802e2ba14566e1cbb6f38b03534e21efe098f82514eea722696ae4e158",
+      "prerelease_size": 3297072
+    }
+  }
 }
