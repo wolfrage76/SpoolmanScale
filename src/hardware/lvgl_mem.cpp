@@ -5,6 +5,14 @@
 
 #include "lv_conf.h"
 
+// The simulator has no board; its lists keep to the internal pool.
+#ifndef SPOOLMANSCALE_SIM
+#include "boards/board.h"
+#endif
+#ifndef BOARD_LIST_ROWS_IN_PSRAM
+#define BOARD_LIST_ROWS_IN_PSRAM 0
+#endif
+
 // Why this exists, in numbers (Core 2, dev beta.52, idle): 117 kB of internal
 // heap free, 96 kB of it sitting in LVGL's fixed pool, of which the idle UI
 // used about 20 kB. The pool kept LVGL from starving anything else - that was
@@ -57,6 +65,19 @@ static void   simMarkPsram(void *, bool) {}
 bool lvMemInternalRoom(size_t bytes) {
   if (s_int_used + bytes > LVGL_MEM_INTERNAL_BUDGET) return false;
   return heap_caps_get_free_size(LVGL_MEM_CAPS_INT) >= bytes + LVGL_MEM_INTERNAL_RESERVE;
+}
+
+// PSRAM that stays free behind a row: the display's frame, JSON documents and
+// TLS all live there too.
+#define LVGL_MEM_PSRAM_RESERVE  (1024u * 1024u)
+
+bool lvMemRowRoom(size_t bytes) {
+  if (lvMemInternalRoom(bytes)) return true;
+#if BOARD_LIST_ROWS_IN_PSRAM
+  return heap_caps_get_free_size(LVGL_MEM_CAPS_PS) >= bytes + LVGL_MEM_PSRAM_RESERVE;
+#else
+  return false;
+#endif
 }
 
 static void account(void *p, bool add) {

@@ -8,6 +8,7 @@
 
 #include "app/app_state.h"
 #include "app_config.h"
+#include "boards/board.h"
 #include "hardware/sd_logger.h"
 #include "services/backend.h"
 #include "services/device_name.h"
@@ -45,7 +46,7 @@ static void addService() {
   s_service_added = true;
   MDNS.addServiceTxt("http", "tcp", "fw",    FW_VERSION);
   MDNS.addServiceTxt("http", "tcp", "id",    wifiManagerDeviceId());
-  MDNS.addServiceTxt("http", "tcp", "model", "WT32-SC01-Plus");
+  MDNS.addServiceTxt("http", "tcp", "model", BOARD_MODEL);
   MDNS.addServiceTxt("http", "tcp", "backend", backendName());
   s_txt_backend = (int)backendMode();
 }

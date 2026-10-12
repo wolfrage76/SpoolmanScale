@@ -20,6 +20,7 @@
 #include "hardware/sd_logger.h"
 #include "services/app_settings.h"
 #include "services/backend.h"
+#include "services/board_image.h"
 #include "services/backend_api.h"
 #include "services/breadcrumb.h"
 #include "services/device_name.h"
@@ -150,7 +151,13 @@ void appSetup() {
   // Before anything else can leave one of its own: this reads what the
   // previous boot was doing when it stopped. writeBootBlock() prints it.
   crumbBegin();
+  // What only this board has between the processor and its peripherals, an
+  // I/O expander for one. Before the SD card and the display, which may hang
+  // on it.
+  boardEarlyInit();
   Serial.println("=== SpoolmanScale " FW_VERSION " ===");
+  // The line an uploaded image is recognised by, see services/board_image.h.
+  Serial.println(boardImageMarker());
   Serial.println("KDF Master: 9a759cf2c4f7caff222cb9769b41bc96");
   Serial.println("Context:    RFID-B");
 

@@ -177,6 +177,27 @@ void screenshotRoutes(WebServer& srv) {
     sendBmp(srv);
   });
 
+  // GET /api/glass.raw -> the frame as the panel shows it this moment, on a
+  // board that keeps one: RGB565, little endian, in rows, its size in the
+  // X-Glass header. A screenshot is what the UI drew; this is what reached
+  // the glass, enlargement and dimming included, and the only picture there
+  // is of a screen at the panel's own resolution.
+  srv.on("/api/glass.raw", HTTP_GET, [&srv]() {
+    if (!webRequire(srv, GATE_MAINT, T(STR_W_NAV_LOGS))) return;
+    const uint16_t* glass = displayGlass();
+    if (!glass) { srv.send(404, "text/plain", "This board keeps no frame"); return; }
+    static constexpr size_t GLASS_CHUNK_BYTES = 4096;
+    const size_t total = (size_t)displayNativeW() * displayNativeH() * sizeof(uint16_t);
+    srv.sendHeader("X-Glass", String(displayNativeW()) + "x" + displayNativeH());
+    srv.setContentLength(total);
+    srv.send(200, "application/octet-stream", "");
+    const char* p = (const char*)glass;
+    for (size_t off = 0; off < total; off += GLASS_CHUNK_BYTES) {
+      const size_t n = (total - off < GLASS_CHUNK_BYTES) ? total - off : GLASS_CHUNK_BYTES;
+      srv.sendContent(p + off, n);
+    }
+  });
+
   // POST /api/screenshot/drop?id=N or ?all=1 -> frees the PSRAM they hold
   srv.on("/api/screenshot/drop", HTTP_POST, [&srv]() {
     if (!webRequire(srv, GATE_MAINT, T(STR_W_NAV_LOGS))) return;

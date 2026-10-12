@@ -1,6 +1,6 @@
 // ============================================================
 //  SpoolmanScale – Bambu NFC Tag Reader & Decoder
-//  Board:   WT32-SC01 Plus (ESP32-S3)
+//  Boards:  WT32-SC01 Plus (ESP32-S3), and those under src/boards/
 //  Version: v0.8.3-beta.51
 //
 //  Reads Bambu Lab MIFARE Classic tags, derives keys via KDF

@@ -275,7 +275,7 @@ bool lvPoolHasRoomForRow() {
   // Fragmentation, the second thing the old pool check watched, is the heap's
   // business now: a row's blocks are small enough for any gap it has, and a
   // block that finds none goes to PSRAM instead of failing.
-  return lvMemInternalRoom(LV_ROW_RESERVE_BYTES);
+  return lvMemRowRoom(LV_ROW_RESERVE_BYTES);
 }
 
 int filamanStatusStrId(int status_id) {

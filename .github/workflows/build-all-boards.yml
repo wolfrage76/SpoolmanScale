@@ -117,6 +117,38 @@ jobs:
           VERSION=${{ steps.version.outputs.version }}
           cp .pio/build/${{ matrix.env }}/firmware.bin SpoolmanScale.bin
           cp .pio/build/${{ matrix.env }}/firmware.bin SpoolmanScale_${VERSION}.bin
+      - name: Build the other boards
+        # The matrix above is the board whose files the fleet and the web
+        # flasher know by their plain names. Every other board is built here,
+        # in the same job, because the steps below publish once for all of
+        # them. Each gets three assets under its own name:
+        #   SpoolmanScale-<board>.bin                    what the device downloads
+        #   SpoolmanScale-<board>_<version>.bin          for the browser upload
+        #   SpoolmanScale-<board>_<version>_factory.bin  bootloader, partition
+        #     table and firmware in one file, to flash at offset 0 over USB
+        # A new board is one more name in OTHER_BOARDS, here and below.
+        env:
+          OTHER_BOARDS: waveshare-s3-lcd7
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          BOOT_APP0="$(find ~/.platformio/packages -path '*framework-arduinoespressif32*' -name boot_app0.bin | head -1)"
+          for BOARD in $OTHER_BOARDS; do
+            pio run -e "$BOARD"
+            OUT=".pio/build/$BOARD"
+            SIZE=$(stat -c %s "$OUT/firmware.bin")
+            echo "$BOARD firmware.bin: $SIZE bytes of 6291456"
+            if [ "$SIZE" -gt 6291456 ]; then
+              echo "::error::$BOARD firmware.bin is $SIZE bytes, more than the 6 MB app slot"
+              exit 1
+            fi
+            cp "$OUT/firmware.bin" "SpoolmanScale-$BOARD.bin"
+            cp "$OUT/firmware.bin" "SpoolmanScale-${BOARD}_${VERSION}.bin"
+            pio pkg exec --package tool-esptoolpy -- esptool.py --chip esp32s3 merge-bin \
+              -o "SpoolmanScale-${BOARD}_${VERSION}_factory.bin" \
+              --flash-mode dio --flash-freq 80m --flash-size 16MB \
+              0x0 "$OUT/bootloader.bin" 0x8000 "$OUT/partitions.bin" \
+              0xe000 "$BOOT_APP0" 0x10000 "$OUT/firmware.bin"
+          done
       - name: Update the public web flasher
         # Public tags only. An internal beta.N build would otherwise switch the
         # flasher on the docs page to a test version that nobody outside the
@@ -158,9 +190,13 @@ jobs:
           # with its app slot and offers the web flasher instead of an update
           # that would not fit. Firmware from before this ignores the key.
           SIZE=$(stat -c%s SpoolmanScale.bin)
-          python3 - "$VERSION" "$SHA" "$SIZE" <<'PY'
-          import json, re, sys
+          # Every other board has the same keys in an object of its own under
+          # "boards", which is where its firmware looks (BOARD_VERSION_NODE).
+          OTHER_BOARDS="waveshare-s3-lcd7"
+          python3 - "$VERSION" "$SHA" "$SIZE" $OTHER_BOARDS <<'PY'
+          import hashlib, json, os, re, sys
           version, sha, size = sys.argv[1], sys.argv[2], int(sys.argv[3])
+          other_boards = sys.argv[4:]
           data = {
               "stable": "",
               "stable_sha256": "",
@@ -180,6 +216,20 @@ jobs:
               data["stable"] = version
               data["stable_sha256"] = sha
               data["stable_size"] = size
+          boards = data.setdefault("boards", {})
+          for board in other_boards:
+              image = f"SpoolmanScale-{board}.bin"
+              with open(image, "rb") as f:
+                  board_sha = hashlib.sha256(f.read()).hexdigest()
+              board_size = os.path.getsize(image)
+              node = boards.setdefault(board, {})
+              node["prerelease"] = version
+              node["prerelease_sha256"] = board_sha
+              node["prerelease_size"] = board_size
+              if not re.search(r"-beta\.\d+$", version):
+                  node["stable"] = version
+                  node["stable_sha256"] = board_sha
+                  node["stable_size"] = board_size
           with open("version.json", "w") as f:
               json.dump(data, f, indent=2)
               f.write("\n")
@@ -244,5 +294,6 @@ jobs:
           files: |
             SpoolmanScale.bin
             SpoolmanScale_${{ steps.version.outputs.version }}.bin
+            SpoolmanScale-*.bin
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

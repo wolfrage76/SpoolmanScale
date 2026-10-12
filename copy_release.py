@@ -5,10 +5,19 @@ import json
 
 Import("env")
 
+# The board every release has carried from the start. Its files keep the names
+# and places the fleet, the web flasher and the release workflow know. Any
+# other board gets a folder of its own next to them and its name in every file,
+# so that no image can be mistaken for another board's.
+DEFAULT_BOARD = "wt32-sc01-plus"
+
 def copy_release_files(source, target, env):
     build_dir = env.subst("$BUILD_DIR")
     project_dir = env.subst("$PROJECT_DIR")
     src_dir = os.path.join(project_dir, "src")
+    board = env.subst("$PIOENV")
+    default_board = (board == DEFAULT_BOARD)
+    image_name = "SpoolmanScale" if default_board else f"SpoolmanScale-{board}"
 
     # Versionsnummer aus main.cpp/app_config.h lesen
     version = "unknown"
@@ -28,20 +37,25 @@ def copy_release_files(source, target, env):
     print(f"copy_release: version = {version}")
 
     # Ordnerstruktur anlegen
-    release_base    = os.path.join(project_dir, "releases", version)
+    release_root    = os.path.join(project_dir, "releases", version)
+    release_base    = release_root if default_board else os.path.join(release_root, "boards", board)
     webflasher_dir  = os.path.join(release_base, "webflasher")
     ota_github_dir  = os.path.join(release_base, "ota_github")
     ota_browser_dir = os.path.join(release_base, "ota_browser")
     source_dir      = os.path.join(release_base, "source")
 
-    for d in [webflasher_dir, ota_github_dir, ota_browser_dir, source_dir]:
+    dirs = [webflasher_dir, ota_github_dir, ota_browser_dir]
+    # The source is the same for every board, so it is kept once.
+    if default_board:
+        dirs.append(source_dir)
+    for d in dirs:
         os.makedirs(d, exist_ok=True)
 
     # Webflasher - alle drei Binaries
     for src_name, dst_name in [
         ("bootloader.bin", "bootloader.bin"),
         ("partitions.bin", "partitions.bin"),
-        ("firmware.bin",   "SpoolmanScale.bin"),
+        ("firmware.bin",   f"{image_name}.bin"),
     ]:
         src = os.path.join(build_dir, src_name)
         dst = os.path.join(webflasher_dir, dst_name)
@@ -55,17 +69,17 @@ def copy_release_files(source, target, env):
 
     # OTA GitHub
     if os.path.exists(firmware_bin):
-        shutil.copy2(firmware_bin, os.path.join(ota_github_dir, "SpoolmanScale.bin"))
-        print(f"copy_release: -> ota_github/SpoolmanScale.bin")
+        shutil.copy2(firmware_bin, os.path.join(ota_github_dir, f"{image_name}.bin"))
+        print(f"copy_release: -> ota_github/{image_name}.bin")
 
     # OTA Browser (mit Versionsnummer)
-    browser_filename = f"SpoolmanScale_{version}.bin"
+    browser_filename = f"{image_name}_{version}.bin"
     if os.path.exists(firmware_bin):
         shutil.copy2(firmware_bin, os.path.join(ota_browser_dir, browser_filename))
         print(f"copy_release: -> ota_browser/{browser_filename}")
 
     # Quellcode
-    if os.path.exists(src_dir):
+    if default_board and os.path.exists(src_dir):
         for name in os.listdir(source_dir):
             path = os.path.join(source_dir, name)
             if os.path.isdir(path):
@@ -78,21 +92,23 @@ def copy_release_files(source, target, env):
     # Build-Scripts + Config
     for f in ["platformio.ini", "copy_release.py", "partitions.csv"]:
         src = os.path.join(project_dir, f)
-        if os.path.exists(src):
+        if default_board and os.path.exists(src):
             shutil.copy2(src, os.path.join(source_dir, f))
             print(f"copy_release: -> source/{f}")
 
     # manifest.json updaten + in Release-Ordner kopieren
-    manifest_path = os.path.join(project_dir, "manifest.json")
+    # Each board has its own manifest for the web flasher.
+    manifest_name = "manifest.json" if default_board else f"manifest-{board}.json"
+    manifest_path = os.path.join(project_dir, manifest_name)
     if os.path.exists(manifest_path):
         with open(manifest_path, "r") as f:
             manifest = json.load(f)
         manifest["version"] = version
         with open(manifest_path, "w") as f:
             json.dump(manifest, f, indent=2)
-        shutil.copy2(manifest_path, os.path.join(release_base, "manifest.json"))
-        print(f"copy_release: manifest.json version -> {version}")
+        shutil.copy2(manifest_path, os.path.join(release_base, manifest_name))
+        print(f"copy_release: {manifest_name} version -> {version}")
 
-    print(f"copy_release: done -> releases/{version}/")
+    print(f"copy_release: done -> {os.path.relpath(release_base, project_dir)}/")
 
 env.AddPostAction("buildprog", copy_release_files)

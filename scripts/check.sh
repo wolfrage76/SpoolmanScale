@@ -177,18 +177,21 @@ fi
 #     OTA never rewrites the partition table, so such a device reads the size
 #     from version.json and offers the web flasher instead of the update
 #     (partition_layout.h). Only checkable once the firmware has been built.
-FW_BIN=.pio/build/wt32-sc01-plus/firmware.bin
+#     Every board in platformio.ini, each against the same table.
 OTA_MAX_APP_BYTES=6291456
-if [ ! -f "$FW_BIN" ]; then
-  warnf "binary size skipped: $FW_BIN is missing, build the firmware once"
-else
-  size=$(wc -c < "$FW_BIN" | tr -d ' ')
-  if [ "$size" -gt "$OTA_MAX_APP_BYTES" ]; then
-    bad "firmware.bin is $size bytes, more than the $OTA_MAX_APP_BYTES byte app slot"
+for board in $(sed -nE 's/^\[env:([^]]+)\]$/\1/p' platformio.ini); do
+  FW_BIN=.pio/build/$board/firmware.bin
+  if [ ! -f "$FW_BIN" ]; then
+    warnf "binary size skipped: $FW_BIN is missing, build the firmware once"
   else
-    ok "firmware.bin: $size of $OTA_MAX_APP_BYTES bytes ($(( size * 100 / OTA_MAX_APP_BYTES )) %)"
+    size=$(wc -c < "$FW_BIN" | tr -d ' ')
+    if [ "$size" -gt "$OTA_MAX_APP_BYTES" ]; then
+      bad "$board firmware.bin is $size bytes, more than the $OTA_MAX_APP_BYTES byte app slot"
+    else
+      ok "$board firmware.bin: $size of $OTA_MAX_APP_BYTES bytes ($(( size * 100 / OTA_MAX_APP_BYTES )) %)"
+    fi
   fi
-fi
+done
 
 # 13. The web pages' palettes against the panel's. The stylesheet in
 #     web/web_static.cpp is written by hand, not generated from

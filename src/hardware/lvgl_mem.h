@@ -55,5 +55,11 @@ struct LvMemStats {
 LvMemStats lvMemStats();
 
 // Whether `bytes` more would still come from internal RAM, within the budget
-// and above the reserve. What a list asks before it builds another row.
+// and above the reserve.
 bool lvMemInternalRoom(size_t bytes);
+
+// What a list asks before it builds another row. Internal RAM, as above; on a
+// board whose PSRAM is fast enough to scroll a list out of
+// (BOARD_LIST_ROWS_IN_PSRAM), also when internal RAM is short and PSRAM has
+// the room. The row's blocks then go where lvMemAlloc() finds space.
+bool lvMemRowRoom(size_t bytes);

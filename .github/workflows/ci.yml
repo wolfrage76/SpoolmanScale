@@ -32,8 +32,11 @@ jobs:
     name: Build ${{ matrix.env }}
     runs-on: ubuntu-latest
     strategy:
+      # One job per board: a change that builds for one and breaks another
+      # is caught here, not by whoever owns the other board.
+      fail-fast: false
       matrix:
-        env: [wt32-sc01-plus]
+        env: [wt32-sc01-plus, waveshare-s3-lcd7]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,6 +72,9 @@ jobs:
       # LVGL's symbol header, and that only exists once the build has unpacked
       # the library.
       - name: French column and width budgets
+        # Once is enough: the texts are the same on every board, and the tools
+        # read LVGL's symbol header from this board's libdeps.
+        if: matrix.env == 'wt32-sc01-plus'
         run: |
           if [ -f tools/lang_fr.py ]; then
             python3 tools/lang_fr.py check

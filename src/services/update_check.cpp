@@ -11,6 +11,7 @@
 #include "app_config.h"
 #include "app/app_state.h"
 #include "hardware/sd_logger.h"
+#include "boards/board.h"
 #include "services/partition_layout.h"
 #include "services/github_release.h"
 #include "services/ota_state.h"
@@ -142,22 +143,40 @@ void updateCheckTask(void* arg) {
 
   // With pre-releases on, fall back to the stable tag when the file carries no
   // separate pre-release, which is the case right after a public release.
+  // The first board's keys are the file's top level, where every firmware
+  // since the first has read them. Any other board has the same keys in an
+  // object of its own under "boards", and the top level is not for it: that
+  // tag may have no image this board could run.
+  const bool own_node = (BOARD_VERSION_NODE[0] != '\0');
+  JsonVariantConst node = doc.as<JsonVariantConst>();
+  if (own_node) node = doc["boards"][BOARD_VERSION_NODE];
+
   const char* tag = nullptr;
   const char* sha = nullptr;
   uint32_t size = 0;
   if (gh_prerelease) {
-    tag = doc["prerelease"].as<const char*>();
-    sha = doc["prerelease_sha256"].as<const char*>();
-    size = doc["prerelease_size"] | 0u;
+    tag = node["prerelease"].as<const char*>();
+    sha = node["prerelease_sha256"].as<const char*>();
+    size = node["prerelease_size"] | 0u;
   }
   if (!tag || tag[0] == '\0') {
-    tag = doc["stable"].as<const char*>();
-    sha = doc["stable_sha256"].as<const char*>();
-    size = doc["stable_size"] | 0u;
+    tag = node["stable"].as<const char*>();
+    sha = node["stable_sha256"].as<const char*>();
+    size = node["stable_size"] | 0u;
   }
   s_found_size = size;
 
   if (!tag || tag[0] == '\0') {
+    // Nothing published for this board yet is an answer, not a broken file.
+    if (own_node) {
+      Serial.println("[upd] version.json has no release for " BOARD_ID);
+      time_t checked = time(nullptr);
+      if ((uint32_t)checked > TIME_IS_SYNCED) s_persist_epoch = (uint32_t)checked;
+      s_result = RES_UP_TO_DATE;
+      s_task_running = false;
+      vTaskDelete(NULL);
+      return;
+    }
     s_result = RES_FAIL_JSON;
     s_task_running = false;
     vTaskDelete(NULL);

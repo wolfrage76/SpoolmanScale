@@ -107,6 +107,8 @@ Over 200 people are running a SpoolmanScale, and it is tested daily against a Sp
 | Connector Cables | STEMMA QT / JST cables | [AliExpress](https://de.aliexpress.com/item/1005011904682215.html) |
 | Connector Cables (easier assembly) | Micro JST 1.0 SH 5-pin | [Amazon](https://amzn.eu/d/0aKJ4Va9) |
 
+The firmware also runs on the **Waveshare ESP32-S3-Touch-LCD-7** (7", 800×480), with the same UI enlarged to fit. See [Other Boards](BUILDING.md#other-boards) for wiring and flashing.
+
 Prefer everything in one cart? A community member put together an AliExpress list with parts that work well too: 👉 [SpoolmanScale parts list on AliExpress](https://www.aliexpress.com/p/wish-manage/share.html?spm=a2g0o.cart.headerAcount.6.321738dayZTIa0&wishGroupId=800000022363334&smbPageCode=wishlist-amp&spreadId=E95BDFF0E1B4367408F1423D8C0ABF206981C084C10F93E3EE124B0AFA678D69)
 
 The 3D printable enclosure is available on MakerWorld:

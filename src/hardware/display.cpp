@@ -1,12 +1,11 @@
 #include "display.h"
 
 #include "app_config.h"
+#include "panel.h"
 #include "pins.h"
 
-#include <LovyanGFX.hpp>
 #include <math.h>
 #include <esp_heap_caps.h>
-#include <esp_sleep.h>
 #include <lvgl.h>
 
 #include "ui/touch_feedback.h"
@@ -14,63 +13,23 @@
 // Set to 1 to enable touch coordinate debug output on Serial.
 #define TOUCH_DEBUG 0
 
-// No TwoWire object for the touch bus. LovyanGFX owns it: the Touch_FT5x06
-// config below carries the port, both pins and the frequency, and bus_shared is
-// false. A second TwoWire(0) used to be created and begun here and then never
-// read or written, which initialised I2C port 0 twice over the same pins.
-static constexpr uint8_t BL_PWM_CHANNEL = 7;
-
-// Write clock of the 8 bit panel bus. Left unset, LovyanGFX runs it at 16 MHz,
-// which is 19 ms on the bus for one full 480x320 frame before a pixel has been
-// rendered. The ST7796S datasheet asks for a write cycle of 66 ns (15 MHz) and
-// 15 ns for each half of the pulse, so the default already sat on the limit
-// and this is past it. 20 MHz is what nearly every published configuration of
-// this board runs. A wrong pixel, a colour fringe or a shifted line, above all
-// on a device that has warmed up, means going back down.
-static constexpr uint32_t LCD_BUS_WRITE_HZ = 20000000;
+// The LVGL side of the display, the same on every board. The glass itself,
+// its bus, its touch chip and its backlight are the board's: see panel.h.
 
 static void (*touch_activity_callback)() = nullptr;
 
-class LGFX : public lgfx::LGFX_Device {
-  lgfx::Panel_ST7796  _panel;
-  lgfx::Bus_Parallel8 _bus;
-  lgfx::Light_PWM     _light;
-  lgfx::Touch_FT5x06  _touch;
-public:
-  LGFX(void) {
-    { auto cfg = _bus.config();
-      cfg.pin_wr=47; cfg.pin_rd=-1; cfg.pin_rs=0;
-      cfg.pin_d0=9;  cfg.pin_d1=46; cfg.pin_d2=3;
-      cfg.pin_d3=8;  cfg.pin_d4=18; cfg.pin_d5=17;
-      cfg.pin_d6=16; cfg.pin_d7=15;
-      cfg.freq_write=LCD_BUS_WRITE_HZ;
-      _bus.config(cfg); _panel.setBus(&_bus); }
-    { auto cfg = _panel.config();
-      cfg.pin_cs=-1; cfg.pin_rst=4; cfg.pin_busy=-1;
-      cfg.memory_width=320; cfg.memory_height=480;
-      cfg.panel_width=320;  cfg.panel_height=480;
-      cfg.invert=true; cfg.rgb_order=false;
-      _panel.config(cfg); }
-    { auto cfg = _light.config();
-      // invert stays false: GPIO45 drives the WT32-SC01 Plus backlight
-      // active-high, so duty 255 is full output. Flipping this to true does
-      // not brighten a dim panel, it blacks it out -- and it would also turn
-      // the backlight fully ON in deep sleep, where displayPrepareDeepSleep()
-      // asks for brightness 0.
-      cfg.pin_bl=hw_pins::LCD_BACKLIGHT; cfg.invert=false;
-      cfg.freq=44100; cfg.pwm_channel=BL_PWM_CHANNEL;
-      _light.config(cfg); _panel.setLight(&_light); }
-    { auto cfg = _touch.config();
-      cfg.x_min=0; cfg.x_max=319; cfg.y_min=0; cfg.y_max=479;
-      cfg.pin_int=hw_pins::TOUCH_INT; cfg.bus_shared=false; cfg.offset_rotation=0;
-      cfg.i2c_port=0; cfg.i2c_addr=0x38;
-      cfg.pin_sda=hw_pins::TOUCH_SDA; cfg.pin_scl=hw_pins::TOUCH_SCL; cfg.freq=400000;
-      _touch.config(cfg); _panel.setTouch(&_touch); }
-    setPanel(&_panel);
-  }
-};
+// The driver LVGL draws through. At file scope because displaySetNative()
+// hands it back to LVGL with another resolution.
+static lv_disp_drv_t disp_drv;
+static bool native_mode = false;
 
-static LGFX tft;
+// The draw buffer is as wide as the widest picture it will ever hold.
+#ifdef BOARD_NATIVE_W
+static constexpr uint32_t DRAW_BUF_W = BOARD_NATIVE_W;
+#else
+static constexpr uint32_t DRAW_BUF_W = DISPLAY_W_PX;
+#endif
+
 static lv_disp_draw_buf_t draw_buf;
 // Lines LVGL renders and flushes in one go. It walks the object tree once per
 // strip, so the stock 10 lines made a full frame 32 walks: measured while
@@ -89,28 +48,44 @@ static char draw_buf_info[16] = "";
 
 const char* displayDrawBufInfo() { return draw_buf_info; }
 
-// RGB565 gamma lookup. Two small tables (5-bit R/B, 6-bit G) keep the
-// per-pixel cost to two array reads and some shifting.
+// RGB565 lookup applied to every pixel on its way to the panel. Two small
+// tables (5-bit R/B, 6-bit G) keep the per-pixel cost to two array reads and
+// some shifting. They carry the gamma lift and, on a board whose backlight
+// cannot be dimmed, the brightness as well: one pass for both.
 static uint8_t  ui_lut5[32];
 static uint8_t  ui_lut6[64];
-static uint16_t ui_gain = 100;      // 100 == identity, transform skipped
+static uint16_t ui_gain = 100;      // 100 == identity
+static uint8_t  soft_dim = 255;     // 255 == identity, only below with no PWM
+static bool     lut_active = false; // false: the transform is skipped
 
 uint16_t displayGetUiGain() { return ui_gain; }
+
+// The darkest the picture is ever drawn, as a share of full. A backlight at
+// duty 10 is dim and still readable, because the eye follows it; pixel values
+// cut to 4 % are three grey levels. A quarter keeps every colour apart.
+static constexpr float SOFT_DIM_FLOOR = 0.25f;
+
+static void rebuildLut() {
+  lut_active = (ui_gain > 100) || (soft_dim < 255);
+  if (lut_active) {
+    const float inv = 100.0f / (float)ui_gain;   // exponent 1/gamma
+    const float dim = (soft_dim >= 255) ? 1.0f
+        : SOFT_DIM_FLOOR + (1.0f - SOFT_DIM_FLOOR) * ((float)soft_dim / 255.0f);
+    for (int i = 0; i < 32; i++)
+      ui_lut5[i] = (uint8_t)lroundf(powf((float)i / 31.0f, inv) * 31.0f * dim);
+    for (int i = 0; i < 64; i++)
+      ui_lut6[i] = (uint8_t)lroundf(powf((float)i / 63.0f, inv) * 63.0f * dim);
+  }
+  // Only invalidated areas get re-flushed, so force a full repaint. Guarded
+  // because this is also reached from loadPrefs(), before lv_init() has run.
+  if (lv_disp_get_default()) lv_obj_invalidate(lv_scr_act());
+}
 
 void displaySetUiGain(uint16_t gamma_x100) {
   if (gamma_x100 < 100) gamma_x100 = 100;
   if (gamma_x100 > 300) gamma_x100 = 300;
   ui_gain = gamma_x100;
-  if (ui_gain > 100) {
-    const float inv = 100.0f / (float)ui_gain;   // exponent 1/gamma
-    for (int i = 0; i < 32; i++)
-      ui_lut5[i] = (uint8_t)lroundf(powf((float)i / 31.0f, inv) * 31.0f);
-    for (int i = 0; i < 64; i++)
-      ui_lut6[i] = (uint8_t)lroundf(powf((float)i / 63.0f, inv) * 63.0f);
-  }
-  // Only invalidated areas get re-flushed, so force a full repaint. Guarded
-  // because this is also called from loadPrefs(), before lv_init() has run.
-  if (lv_disp_get_default()) lv_obj_invalidate(lv_scr_act());
+  rebuildLut();
 }
 
 // Flush timing since the last displayFlushStatsTake(). Written by lvgl_flush()
@@ -153,9 +128,9 @@ static void lvgl_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *co
   uint32_t w = area->x2 - area->x1 + 1;
   uint32_t h = area->y2 - area->y1 + 1;
   // Before the gamma pass: the picture as the UI drew it, the same colours the
-  // simulator shows, not the lift this one panel gets.
+  // simulator shows, not the lift or the dimming this one panel gets.
   if (capture) captureStrip(area, color_p, w);
-  if (ui_gain > 100) {
+  if (lut_active) {
     const uint32_t n = w * h;
     for (uint32_t i = 0; i < n; i++) {
       uint16_t c = color_p[i].full;
@@ -164,10 +139,7 @@ static void lvgl_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *co
                                    (ui_lut5[ c        & 0x1F]));
     }
   }
-  tft.startWrite();
-  tft.setAddrWindow(area->x1, area->y1, w, h);
-  tft.writePixels((lgfx::rgb565_t*)color_p, w * h);
-  tft.endWrite();
+  panelWrite(area->x1, area->y1, (int32_t)w, (int32_t)h, (const uint16_t*)color_p);
   const uint32_t flush_us = micros() - flush_start_us;
   if (flush_us > flush_stats.max_us) flush_stats.max_us = flush_us;
   flush_stats.sum_us += flush_us;
@@ -206,14 +178,30 @@ static void dropPressForGesture() {
   lv_indev_wait_release(indev);
 }
 
-// The chip reports up to two points; LVGL only ever gets the first. Costs no
-// extra I2C traffic: the driver reads every point on each poll and used to
-// hand back one.
+// Two points are read; LVGL only ever gets the first. The second is what the
+// gesture hook counts.
 static constexpr uint8_t TOUCH_POINTS_READ = 2;
 
+#if BOARD_PANEL_ALIGN_X > 1 || BOARD_PANEL_ALIGN_Y > 1
+// A panel that enlarges the picture works on whole blocks of pixels, so every
+// area LVGL redraws is widened to begin and end on a block. LVGL also asks
+// here when it cuts an area into strips, which keeps the strips whole too.
+static void lvgl_rounder(lv_disp_drv_t *drv, lv_area_t *area) {
+  (void)drv;
+  // One to one, there are no blocks.
+  if (native_mode) return;
+  area->x1 = area->x1 / BOARD_PANEL_ALIGN_X * BOARD_PANEL_ALIGN_X;
+  area->y1 = area->y1 / BOARD_PANEL_ALIGN_Y * BOARD_PANEL_ALIGN_Y;
+  area->x2 = (area->x2 / BOARD_PANEL_ALIGN_X + 1) * BOARD_PANEL_ALIGN_X - 1;
+  area->y2 = (area->y2 / BOARD_PANEL_ALIGN_Y + 1) * BOARD_PANEL_ALIGN_Y - 1;
+}
+static_assert(DISPLAY_W_PX % BOARD_PANEL_ALIGN_X == 0 && DISPLAY_H_PX % BOARD_PANEL_ALIGN_Y == 0,
+              "the panel's blocks do not divide the UI");
+#endif
+
 static void lvgl_touch(lv_indev_drv_t *drv, lv_indev_data_t *data) {
-  lgfx::touch_point_t tp[TOUCH_POINTS_READ];
-  const uint8_t points = tft.getTouch(tp, TOUCH_POINTS_READ);
+  PanelTouchPoint tp[TOUCH_POINTS_READ];
+  const uint8_t points = panelTouchRead(tp, TOUCH_POINTS_READ);
   const bool gesture = touch_gesture_hook && touch_gesture_hook(points);
   if (gesture && !touch_held_by_gesture) dropPressForGesture();
   touch_held_by_gesture = gesture;
@@ -223,7 +211,7 @@ static void lvgl_touch(lv_indev_drv_t *drv, lv_indev_data_t *data) {
     return;
   }
   if (points > 0) {
-    const uint16_t x = tp[0].x, y = tp[0].y;
+    const int16_t x = tp[0].x, y = tp[0].y;
     data->state = LV_INDEV_STATE_PR;
     data->point.x = x;
     data->point.y = y;
@@ -243,40 +231,38 @@ static void lvgl_touch(lv_indev_drv_t *drv, lv_indev_data_t *data) {
 bool displayHardwareBegin(void (*touch_activity_cb)()) {
   touch_activity_callback = touch_activity_cb;
 
-  tft.init();  // brings up the touch I2C bus as configured in LGFX::_touch
-  tft.setRotation(1);
-  // Full output until displayPowerInit() applies the user's saved level. This
-  // used to be a hardcoded 204, which meant every device ran the panel at 80%
-  // while the settings slider sat at its 255 default and reported full
-  // brightness -- the panel looked dim "at maximum" and dragging the slider to
-  // a value it already held fired no LV_EVENT_VALUE_CHANGED to correct it.
-  tft.setBrightness(BRIGHT_NORMAL_DEFAULT);
-  tft.fillScreen(TFT_BLACK);
+  // Without a panel the boot still goes on: LVGL draws into its buffer, the
+  // flush goes nowhere, and the web interface and the log stay reachable to
+  // say what is wrong. Stopping here would leave the UI code without a
+  // display to build on.
+  if (!panelBegin()) Serial.println("Display: the panel did not start");
 
   lv_init();
   uint32_t buf_lines = DRAW_BUF_LINES;
   const char* buf_where = "psram";
   lv_color_t* buf = (lv_color_t*)heap_caps_malloc(
-      480 * buf_lines * sizeof(lv_color_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+      DRAW_BUF_W * buf_lines * sizeof(lv_color_t), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   if (!buf) {
     Serial.println("Display: no PSRAM for the draw buffer, using internal RAM");
     buf_lines = DRAW_BUF_FALLBACK_LINES;
     buf_where = "int";
     buf = (lv_color_t*)heap_caps_malloc(
-        480 * buf_lines * sizeof(lv_color_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        DRAW_BUF_W * buf_lines * sizeof(lv_color_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   }
   if (!buf) {
     Serial.println("Display: no memory for the draw buffer");
     return false;
   }
-  const uint32_t buf_px = 480 * buf_lines;
+  const uint32_t buf_px = DRAW_BUF_W * buf_lines;
   snprintf(draw_buf_info, sizeof(draw_buf_info), "%s/%u", buf_where, (unsigned)buf_lines);
   lv_disp_draw_buf_init(&draw_buf, buf, NULL, buf_px);
-  static lv_disp_drv_t disp_drv;
   lv_disp_drv_init(&disp_drv);
   disp_drv.hor_res = DISPLAY_W_PX;
   disp_drv.ver_res = DISPLAY_H_PX;
   disp_drv.flush_cb = lvgl_flush;
+#if BOARD_PANEL_ALIGN_X > 1 || BOARD_PANEL_ALIGN_Y > 1
+  disp_drv.rounder_cb = lvgl_rounder;
+#endif
   disp_drv.draw_buf = &draw_buf;
   lv_disp_drv_register(&disp_drv);
 
@@ -291,34 +277,54 @@ bool displayHardwareBegin(void (*touch_activity_cb)()) {
 }
 
 void displaySetBrightness(uint8_t brightness) {
-  tft.setBrightness(brightness);
+#if BOARD_BACKLIGHT_PWM
+  panelSetBrightness(brightness);
+#else
+  // The backlight only switches, so the level goes into the picture.
+  if (brightness == soft_dim) return;
+  soft_dim = brightness;
+  rebuildLut();
+#endif
 }
 
-// Duty 0 still leaves LEDC driving the pin, and the backlight is an
-// unregulated low-side switch. Hold the pin low instead.
 void displayBacklightOff() {
-  displaySetBrightness(0);
-#if ESP_ARDUINO_VERSION_MAJOR >= 3
-  ledcDetach(hw_pins::LCD_BACKLIGHT);
-#else
-  ledcDetachPin(hw_pins::LCD_BACKLIGHT);
-#endif
-  pinMode(hw_pins::LCD_BACKLIGHT, OUTPUT);
-  digitalWrite(hw_pins::LCD_BACKLIGHT, LOW);
+  panelBacklightOff();
 }
 
 void displayBacklightOn(uint8_t brightness) {
-#if ESP_ARDUINO_VERSION_MAJOR >= 3
-  // Core 3 hands a pin to LEDC through its peripheral manager, and
-  // LovyanGFX drives it by pin number. Its own init attaches it again.
-  if (tft.light()) tft.light()->init(brightness);
-#else
-  ledcAttachPin(hw_pins::LCD_BACKLIGHT, BL_PWM_CHANNEL);
+  panelBacklightOn(brightness);
+#if !BOARD_BACKLIGHT_PWM
   displaySetBrightness(brightness);
 #endif
 }
 
 void displayPrepareDeepSleep() {
-  displaySetBrightness(0);
-  esp_sleep_enable_ext0_wakeup((gpio_num_t)hw_pins::TOUCH_INT, 0);
+  panelPrepareDeepSleep();
 }
+
+#ifdef BOARD_NATIVE_W
+int displayNativeW() { return BOARD_NATIVE_W; }
+int displayNativeH() { return BOARD_NATIVE_H; }
+bool displayIsNative() { return native_mode; }
+
+bool displaySetNative(bool on) {
+  lv_disp_t* disp = lv_disp_get_default();
+  if (!disp) return false;
+  if (on == native_mode) return true;
+  native_mode = on;
+  panelSetNative(on);
+  disp_drv.hor_res = on ? BOARD_NATIVE_W : DISPLAY_W_PX;
+  disp_drv.ver_res = on ? BOARD_NATIVE_H : DISPLAY_H_PX;
+  // Resizes the screen object and asks for everything to be drawn again.
+  lv_disp_drv_update(disp, &disp_drv);
+  return true;
+}
+
+const uint16_t* displayGlass() { return panelGlass(); }
+#else
+int displayNativeW() { return 0; }
+int displayNativeH() { return 0; }
+bool displayIsNative() { return false; }
+bool displaySetNative(bool on) { (void)on; return false; }
+const uint16_t* displayGlass() { return nullptr; }
+#endif

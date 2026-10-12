@@ -11,6 +11,7 @@
 #include "app_config.h"
 #include "hardware/sd_logger.h"
 #include "services/github_release.h"
+#include "services/board_image.h"
 #include "services/partition_layout.h"
 #include "services/ota_state.h"
 #include "services/prefs_store.h"
@@ -780,6 +781,7 @@ static void routesTail(WebServer &srv) {
         }
         Serial.printf("OTA start: %s\n", upload.filename.c_str());
         ota_upload_active = true;
+        boardImageScanBegin();
         if (Update.isRunning()) Update.abort();  // clean up any previous failed upload
         if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
           logSDf("OTA: begin() failed, error %u", (unsigned)Update.getError());
@@ -819,6 +821,19 @@ static void routesTail(WebServer &srv) {
         logSD("OTA: upload aborted by the client");
         if (lbl_ota_status) lv_label_set_text(lbl_ota_status, T(STR_OTA_FAIL));
       } else if (upload.status == UPLOAD_FILE_WRITE) {
+        // An image for another board says so in itself, see board_image.h.
+        // Nothing is committed before end(), so dropping it here leaves the
+        // running firmware where it is.
+        if (boardImageScanFeed(upload.buf, upload.currentSize) == BOARD_IMAGE_FOREIGN) {
+          logSDf("OTA: upload refused after %u bytes, the image is for another board (this is %s)",
+                 (unsigned)ota_upload_done, boardImageMarker());
+          Update.abort();
+          ota_upload_active = false;
+          failed = true;
+          otaGithubOverlayHide();
+          if (lbl_ota_status) lv_label_set_text(lbl_ota_status, T(STR_OTA_FAIL));
+          return;
+        }
         if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
           logSDf("OTA: write failed after %u bytes, error %u",
                  (unsigned)ota_upload_done, (unsigned)Update.getError());
@@ -847,6 +862,16 @@ static void routesTail(WebServer &srv) {
         // end(true), because the image size is only known now: the multipart
         // envelope hid it from begin(). The library still checks the image
         // header before it commits.
+        if (!boardImageScanAccepts()) {
+          // No board named in it at all, on a board that never had an image
+          // without one.
+          Update.abort();
+          s_upload_ok = false;
+          otaGithubOverlayHide();
+          logSDf("OTA: upload refused, the image names no board (this is %s)",
+                 boardImageMarker());
+          return;
+        }
         s_upload_ok = Update.end(true) && !Update.hasError();
         if (s_upload_ok) {
           logSDf("OTA: browser upload complete, %u bytes", (unsigned)upload.totalSize);

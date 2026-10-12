@@ -145,6 +145,76 @@ The USB-C panel mount extension needs to be trimmed before installation. Using a
 
 ---
 
+## Other Boards
+
+The firmware is built for one board at a time. Everything above describes the WT32-SC01 Plus, the board the enclosure is designed for. The same firmware, with every feature, also runs on:
+
+| Board | Environment | Display | Status |
+|---|---|---|---|
+| WT32-SC01 Plus | `wt32-sc01-plus` | 480×320, native | the reference board |
+| Waveshare ESP32-S3-Touch-LCD-7 | `waveshare-s3-lcd7` | 800×480, the 480×320 UI enlarged to fill it | new, see the notes below |
+
+There is no printable enclosure for the other boards yet.
+
+### Waveshare ESP32-S3-Touch-LCD-7
+
+The 800×480 version with the ESP32-S3-WROOM-1-N16R8 module (16 MB flash, 8 MB PSRAM). The 1024×600 "7B" is a different board and is not supported.
+
+**What is different on this board**
+
+- **The picture** is the same 480×320 UI, enlarged until it fills the 800×480 panel. That makes everything 11 % wider than on the WT32; every screen and every setting is otherwise identical.
+- **Brightness** is applied to the picture, not to the backlight: the board can only switch its backlight on and off. Dimming and "screen off" work as on the WT32.
+- **USB**: use the connector labelled **USB**, not the one labelled UART, for flashing, the serial log and the Web Flasher's WiFi setup.
+- **SD card**: the slot on the board is used for the log, as on the WT32.
+
+**Wiring**
+
+The PN532 and the NAU7802 share one I2C bus, as on the WT32, on the board's **UART2 connector**. Set the **UART selection switch** next to it to **UART2**: in the UART1 position the board's USB to UART chip drives one of the two pins and the sensors do not answer.
+
+| Signal | ESP32-S3 pin | Where on the board | Connect to |
+|---|---|---|---|
+| SDA | GPIO43 (TXD) | UART2 connector | PN532 SDA + NAU7802 SDA |
+| SCL | GPIO44 (RXD) | UART2 connector | PN532 SCL + NAU7802 SCL |
+| RST (optional) | GPIO6 | Sensor connector | PN532 RSTPD_N |
+| GND | GND | either connector | PN532 GND + NAU7802 GND |
+| Supply | 3V3 or 5 V | as labelled on the board | PN532 VCC + NAU7802 VIN |
+
+Check the pin order against the labels printed on your board before connecting anything: it is not the order of the WT32 cable.
+
+**Do not use the board's own I2C connector for the PN532.** That bus carries the board's I/O expander, which answers on the PN532's address (0x24). The reader would switch off the backlight and the SD card with every frame it is sent.
+
+The load cell connects to the NAU7802 as described above.
+
+**Flashing**
+
+With PlatformIO, from the repository:
+
+```
+pio run -e waveshare-s3-lcd7 -t upload
+```
+
+Or flash a release without building: every release carries `SpoolmanScale-waveshare-s3-lcd7_<version>_factory.bin`, one file with bootloader, partition table and firmware, to be written at offset 0:
+
+```
+esptool --chip esp32s3 write-flash 0x0 SpoolmanScale-waveshare-s3-lcd7_<version>_factory.bin
+```
+
+If the board is not found: hold **BOOT**, press and release **RESET**, release **BOOT**, and try again.
+
+Later updates come over WiFi as on the WT32. The board downloads its own image (`SpoolmanScale-waveshare-s3-lcd7.bin`), and the upload in the browser refuses an image built for another board.
+
+### Adding a board
+
+A board is a folder under `src/boards/` and an environment in `platformio.ini`. Nothing outside that folder names a board.
+
+1. Copy the folder of the board that is closest to yours and rename it.
+2. `board_config.h`: its name, its pins, and what its hardware can do. `src/boards/board.h` lists what the file has to define.
+3. `panel.cpp`: display, touch and backlight, behind the functions of `src/hardware/panel.h`. A panel larger than 480×320 enlarges the picture there; the UI does not change.
+4. Add the board to `src/boards/board.h` and an `[env:<board>]` to `platformio.ini` that defines its `BOARD_*` macro and compiles its folder.
+5. Add the environment's name to the build matrix in `.github/workflows/ci.yml` and to `OTHER_BOARDS` in `.github/workflows/build-all-boards.yml`.
+
+---
+
 ## Assembly Photos
 
 [![](images/spoolmanscale_assembly_1.jpeg)](images/spoolmanscale_assembly_1.jpeg) [![](images/spoolmanscale_assembly_2.jpeg)](images/spoolmanscale_assembly_2.jpeg)

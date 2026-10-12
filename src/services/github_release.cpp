@@ -10,12 +10,21 @@
 #include <string.h>
 #include "mbedtls/sha256.h"
 
+#include "boards/board.h"
 #include "hardware/sd_logger.h"
 #include "services/ota_state.h"
 
 #define GH_REPO "Niko11111/SpoolmanScale"
-// The release asset the device flashes, see githubFlashTag().
-#define GH_IMAGE_ASSET "SpoolmanScale.bin"
+// The release asset the device flashes, see githubFlashTag(). Every board has
+// its own: an image only runs on the board it was built for. A release that
+// carries none for this board has a size of 0 here and a 404 on the download.
+#define GH_IMAGE_ASSET BOARD_OTA_ASSET
+
+// A board with an image of its own cannot take a release that was cut before
+// it was supported, or by a fork that does not build it: such a release is
+// passed over as if it were not there. The first board's image has been in
+// every release, so nothing changes for it.
+static constexpr bool BOARD_HAS_OWN_ASSET = (BOARD_VERSION_NODE[0] != '\0');
 
 // The image's size out of a release's asset list.
 static uint32_t imageSizeOf(JsonVariantConst rel) {
@@ -102,6 +111,7 @@ bool githubLatestTag(bool prerelease, char *tag, size_t tag_len,
         entries++;
         JsonObject rel = v.as<JsonObject>();
         if (rel["draft"] | false) continue;
+        if (BOARD_HAS_OWN_ASSET && imageSizeOf(rel) == 0) continue;
         const char* t = rel["tag_name"] | "";
         if (t[0] != '\0') {
           // Copied while the document is still alive. The pointer dies with it.
@@ -137,6 +147,7 @@ bool githubLatestTag(bool prerelease, char *tag, size_t tag_len,
       }
       found_size = imageSizeOf(doc);
       if (image_size) *image_size = found_size;
+      if (BOARD_HAS_OWN_ASSET && found_size == 0) tag[0] = '\0';
     }
   }
 
