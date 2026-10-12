@@ -9,7 +9,7 @@
 # Waveshare Spoolman Scale
 
 > [!NOTE]
-> **This is a fork of [Niko11111/SpoolmanScale](https://github.com/Niko11111/SpoolmanScale).** It exists to run SpoolmanScale on boards other than the one the original is built for, first of all the **Waveshare ESP32-S3-Touch-LCD-7**. Everything the original does, this does too: the project, its design and nearly all of its code are Niko's. If you have the WT32-SC01 Plus and no reason to be here, use the original.
+> **This is a fork of [Niko11111/SpoolmanScale](https://github.com/Niko11111/SpoolmanScale).** It exists to run SpoolmanScale on boards other than the one the original is built for, first of all the **Waveshare ESP32-S3-Touch-LCD-7**. Everything the original does, this does too: the project, its design and nearly all of its code are Niko's. If you only have the WT32-SC01 Plus and no reason to be here, you can just use the original.
 
 ## What this fork adds
 
