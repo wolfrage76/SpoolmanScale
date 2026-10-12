@@ -111,7 +111,14 @@ jobs:
                   m2 = re.match(r"\.(\d+)", v[b + 4:])
                   if m2:
                       beta = int(m2.group(1))
-              return major * 10**9 + minor * 10**6 + patch * 10**3 + beta
+              # This fork's own counter, "-w1" at the very end: a release of
+              # its own between two of upstream's. The lightest part, so it
+              # only decides between tags that are the same version otherwise.
+              fork = 0
+              m3 = re.search(r"-w(\d+)$", v)
+              if m3 and int(m3.group(1)) <= 999:
+                  fork = int(m3.group(1))
+              return (major * 10**9 + minor * 10**6 + patch * 10**3 + beta) * 1000 + fork
 
           tag = sys.argv[1]
           try:
@@ -205,7 +212,7 @@ jobs:
           # produced "v0.6.3-beta.14.13"; without making "-beta" itself optional
           # the line would stop matching for good after the first suffix-free
           # release and index.html would freeze at that version.
-          sed -i -E "s/Firmware v[0-9]+\.[0-9]+\.[0-9]+(-beta(\.[0-9]+)?)?/Firmware $VERSION/" index.html
+          sed -i -E "s/Firmware v[0-9]+\.[0-9]+\.[0-9]+(-beta(\.[0-9]+)?)?(-w[0-9]+)?/Firmware $VERSION/" index.html
       - name: Update version.json
         run: |
           # Read by the firmware's background update check. Deliberately a
@@ -213,6 +220,8 @@ jobs:
           # 60 requests per hour and IP, which users behind carrier grade NAT
           # share, and its release list runs to over a hundred kilobytes.
           #
+          # This fork's own counter at the end (v0.6.0-beta.3-w1) changes
+          # nothing about which kind of tag it is.
           # A tag carrying a beta counter (v0.6.0-beta.3) is an internal build
           # and only ever lands in "prerelease". A public tag (v0.6.0-beta)
           # updates both, so devices with pre-releases switched off see it too.
@@ -248,7 +257,7 @@ jobs:
           data["prerelease"] = version
           data["prerelease_sha256"] = sha
           data["prerelease_size"] = size
-          if not re.search(r"-beta\.\d+$", version):
+          if not re.search(r"-beta\.\d+(-w\d+)?$", version):
               data["stable"] = version
               data["stable_sha256"] = sha
               data["stable_size"] = size
@@ -262,7 +271,7 @@ jobs:
               node["prerelease"] = version
               node["prerelease_sha256"] = board_sha
               node["prerelease_size"] = board_size
-              if not re.search(r"-beta\.\d+$", version):
+              if not re.search(r"-beta\.\d+(-w\d+)?$", version):
                   node["stable"] = version
                   node["stable_sha256"] = board_sha
                   node["stable_size"] = board_size
@@ -289,7 +298,7 @@ jobs:
           VERSION=${{ steps.version.outputs.version }}
           mkdir -p /tmp/ci-out/webflasher
           cp version.json /tmp/ci-out/
-          if [ -z "$(echo "$VERSION" | grep -E -- '-beta\.[0-9]+$')" ]; then
+          if [ -z "$(echo "$VERSION" | grep -E -- '-beta\.[0-9]+(-w[0-9]+)?$')" ]; then
             cp manifest.json manifest-*.json index.html /tmp/ci-out/
             cp webflasher/bootloader.bin webflasher/partitions.bin webflasher/boot_app0.bin webflasher/SpoolmanScale.bin webflasher/SpoolmanScale-*.bin /tmp/ci-out/webflasher/
           fi

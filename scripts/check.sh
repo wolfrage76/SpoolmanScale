@@ -33,13 +33,14 @@ if [ -n "$hits" ]; then bad "setPassiveActivationRetries(0) is blacklisted:"; ec
 
 # 5. The version lives in two places and they must agree. A public release
 #    is never a bare "-beta": the CI guard and version_compare rank it at 0.
+#    This fork's own releases between two of upstream's end in "-wN".
 v_cfg=$(sed -nE 's/^#define[[:space:]]+FW_VERSION[[:space:]]+"([^"]+)".*/\1/p' src/app_config.h | head -1)
 v_main=$(sed -nE 's|^//[[:space:]]+Version:[[:space:]]+(v[^[:space:]]+).*|\1|p' src/main.cpp | head -1)
 if [ -z "$v_cfg" ]; then bad "FW_VERSION not found in src/app_config.h"; fi
 if [ -z "$v_main" ]; then bad "Version line not found in the src/main.cpp header"; fi
 if [ -n "$v_cfg" ] && [ -n "$v_main" ]; then
   if [ "$v_cfg" != "$v_main" ]; then bad "version mismatch: app_config.h says $v_cfg, main.cpp header says $v_main";
-  elif ! echo "$v_cfg" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$'; then bad "version '$v_cfg' is not vX.Y.Z or vX.Y.Z-beta.N";
+  elif ! echo "$v_cfg" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?(-w[0-9]+)?$'; then bad "version '$v_cfg' is not vX.Y.Z or vX.Y.Z-beta.N, with this fork's -wN at the end or without";
   else ok "version $v_cfg in both places"; fi
 fi
 

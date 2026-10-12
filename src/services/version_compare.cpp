@@ -26,6 +26,33 @@ constexpr int BETA_COUNTER_MAX = 998;
 constexpr uint64_t WEIGHT_MAJOR = 1000000000ULL;
 constexpr uint64_t WEIGHT_MINOR = 1000000ULL;
 constexpr uint64_t WEIGHT_PATCH = 1000ULL;
+
+// A release of this fork between two of upstream's carries upstream's version
+// and a counter of its own at the end:
+//
+//   v0.8.3-beta.51       upstream's version, merged and released as it is
+//   v0.8.3-beta.51-w1    this fork's own change on top of it
+//   v0.8.3-beta.51-w2    the next one
+//   v0.8.3-beta.52       upstream's next version, which outranks them all
+//
+// It is the last and lightest part of the number, so it only ever decides
+// between two tags that are the same version otherwise. The release workflow
+// ranks tags the same way (.github/workflows/build-all-boards.yml).
+constexpr uint64_t WEIGHT_FORK = 1000ULL;   // what everything above it is multiplied by
+constexpr int FORK_COUNTER_MAX = 999;
+
+// The counter behind "-w" at the very end of the tag, 0 without one.
+uint64_t forkCounter(const char* v) {
+  const char* w = strrchr(v, '-');
+  if (!w || w[1] != 'w' || !isdigit((unsigned char)w[2])) return 0;
+  int n = 0;
+  for (const char* d = w + 2; *d; d++) {
+    if (!isdigit((unsigned char)*d)) return 0;
+    n = n * 10 + (*d - '0');
+    if (n > FORK_COUNTER_MAX) return 0;
+  }
+  return (uint64_t)n;
+}
 }  // namespace
 
 uint64_t parseVersion(const char* v) {
@@ -55,8 +82,9 @@ uint64_t parseVersion(const char* v) {
   if (minor < 0) minor = 0;
   if (patch < 0) patch = 0;
 
-  return (uint64_t)major * WEIGHT_MAJOR
-       + (uint64_t)minor * WEIGHT_MINOR
-       + (uint64_t)patch * WEIGHT_PATCH
-       + beta;
+  return ((uint64_t)major * WEIGHT_MAJOR
+        + (uint64_t)minor * WEIGHT_MINOR
+        + (uint64_t)patch * WEIGHT_PATCH
+        + beta) * WEIGHT_FORK
+       + forkCounter(v);
 }
