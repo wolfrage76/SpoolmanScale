@@ -610,17 +610,12 @@ void refreshOverviewBay(OverviewBay &bay, const OverviewUnit &unit, int index, b
   setLabelIfChanged(bay.material, slot.material.length() ? slot.material : String("--"));
   setTextColorIfChanged(bay.material, COL_TEXT);
 
-  String desc = slot.colorName;
-  if (slot.active) {
-    if (desc.length()) {
-      desc += " ";
-    }
-    desc += "FEEDING";
-  }
-  const bool showDesc = desc.length() > 0;
+  // The colour name alone. The slot that feeds is told by its border, and
+  // the word after the name cost a line the name may need itself.
+  const bool showDesc = slot.colorName.length() > 0;
   setHiddenIfChanged(bay.desc, !showDesc);
   if (showDesc) {
-    setLabelIfChanged(bay.desc, desc);
+    setLabelIfChanged(bay.desc, slot.colorName);
   }
 
   const bool showBrand = slot.manufacturer.length() > 0;
