@@ -14,7 +14,9 @@
 #include "hardware/sd_logger.h"
 #include "services/ota_state.h"
 
-#define GH_REPO "Niko11111/SpoolmanScale"
+// This fork's own releases: they are the ones that carry an image for every
+// board it builds.
+#define GH_REPO "wolfrage76/Waveshare-Spoolman-Scale"
 // The release asset the device flashes, see githubFlashTag(). Every board has
 // its own: an image only runs on the board it was built for. A release that
 // carries none for this board has a size of 0 here and a 404 on the download.

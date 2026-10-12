@@ -202,7 +202,7 @@ jobs:
               "stable_sha256": "",
               "prerelease": "",
               "prerelease_sha256": "",
-              "url": "https://github.com/Niko11111/SpoolmanScale/releases/latest",
+              "url": "https://github.com/wolfrage76/Waveshare-Spoolman-Scale/releases/latest",
           }
           try:
               with open("version.json") as f:
