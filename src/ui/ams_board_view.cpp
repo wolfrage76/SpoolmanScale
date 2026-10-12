@@ -550,10 +550,10 @@ void refreshOverviewBay(OverviewBay &bay, const OverviewUnit &unit, int index, b
       lv_obj_set_height(bay.root, lv_pct(100));
     }
     if (bay.swatch) {
-      int swatchH = 38;
-      if (isHtKind(unit.amsKind)) {
-        swatchH = 22;
-      } else if (cellBay) {
+      // A thin bar on an AMS slot as on an AMS-HT one: the 16 pixels it gives
+      // up are the second line of a colour name that does not fit on one.
+      int swatchH = 22;
+      if (cellBay && !isHtKind(unit.amsKind)) {
         swatchH = 28;
       }
       lv_obj_set_height(bay.swatch, swatchH);
