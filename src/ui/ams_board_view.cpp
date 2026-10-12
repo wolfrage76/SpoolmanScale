@@ -462,8 +462,9 @@ int countAuxCards() {
 
 // The AMS cards, `count` of them shown, in their part of the page. One fills
 // it. Two stand one above the other, each as wide as the page. Three and four
-// make two rows of two. Bays stay side by side inside a card.
-void layoutMainCards(int count) {
+// make two rows of two. Bays stay side by side inside a card. `rowH` is the
+// height of a row in pixels, 0 while the page has no height to share out yet.
+void layoutMainCards(int count, int rowH) {
   const uint32_t cardW = count <= 2 ? 100 : 48;
   const uint32_t cardH = count <= 1 ? 100 : 48;
   for (int i = 0; i < AMS2PRO_COUNT; ++i) {
@@ -471,13 +472,13 @@ void layoutMainCards(int count) {
     if (!card) {
       continue;
     }
-    const uint32_t tag = (cardW << 8) | cardH;
+    const uint32_t tag = (cardW << 24) | (cardH << 16) | static_cast<uint32_t>(rowH);
     if (!styleValueChanged(card, PROP_STYLE_TAG, tag)) {
       continue;
     }
     lv_obj_set_flex_grow(card, 0);
     lv_obj_set_width(card, lv_pct(cardW));
-    lv_obj_set_height(card, lv_pct(cardH));
+    lv_obj_set_height(card, rowH > 0 ? rowH : lv_pct(cardH));
   }
 }
 
@@ -497,26 +498,32 @@ void layoutOverviewBoard() {
                         connectionMessage.length() ? connectionMessage : String(T(STR_AMSB_LINKING)));
     }
   }
-  // Real percentages of the page. Height 0 plus flex grow never settled, so
-  // the area under the header stayed black.
-  lv_obj_set_flex_grow(overviewMain, 0);
-  lv_obj_set_flex_grow(overviewAux, 0);
-  if (auxCount <= 0) {
-    lv_obj_set_height(overviewMain, lv_pct(100));
-    lv_obj_set_height(overviewAux, 0);
-  } else if (mainCount <= 0) {
-    lv_obj_set_height(overviewMain, 0);
-    lv_obj_set_height(overviewAux, lv_pct(100));
-  } else {
-    lv_obj_set_height(overviewMain, lv_pct(66));
-    lv_obj_set_height(overviewAux, lv_pct(34));
-  }
-
   // More than one AMS goes onto two rows: a card is then half as high and,
   // with two of them, as wide as the page, which is what its four bays need.
   // AMS-HT and external spools stay together on the one row under them: a
   // unit there has a single bay, and four of those take the room of one AMS.
-  layoutMainCards(mainCount);
+  const int mainRows = mainCount <= 0 ? 0 : (mainCount == 1 ? 1 : 2);
+  const int rows = mainRows + (auxCount > 0 ? 1 : 0);
+
+  // Every row is the same height, an AMS row or the one under them: the cards
+  // show the same things. The height is in pixels, the page less the gaps
+  // shared out, because percentages do not know about the gaps and left the
+  // rows a few pixels apart in height. Height 0 plus flex grow never settled,
+  // so the area under the header stayed black.
+  lv_obj_set_flex_grow(overviewMain, 0);
+  lv_obj_set_flex_grow(overviewAux, 0);
+  lv_obj_update_layout(overviewRoot);
+  const int gap = lv_obj_get_style_pad_row(overviewRoot, 0);
+  const int pageH = lv_obj_get_content_height(overviewRoot);
+  const int rowH = (rows > 0 && pageH > gap * rows) ? (pageH - gap * (rows - 1)) / rows : 0;
+  if (rowH > 0) {
+    lv_obj_set_height(overviewMain, mainRows > 0 ? mainRows * rowH + gap * (mainRows - 1) : 0);
+    lv_obj_set_height(overviewAux, auxCount > 0 ? rowH : 0);
+  } else if (rows > 0) {
+    lv_obj_set_height(overviewMain, lv_pct(100 * mainRows / rows));
+    lv_obj_set_height(overviewAux, lv_pct(auxCount > 0 ? 100 / rows : 0));
+  }
+  layoutMainCards(mainCount, rowH);
 }
 
 void refreshOverviewBay(OverviewBay &bay, const OverviewUnit &unit, int index, bool cellBay,

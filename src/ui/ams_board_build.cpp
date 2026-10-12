@@ -200,7 +200,8 @@ void buildOverviewPage(lv_obj_t *parent) {
   lv_obj_set_flex_flow(overviewMain, LV_FLEX_FLOW_ROW_WRAP);
   lv_obj_set_flex_align(overviewMain, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
   lv_obj_set_style_pad_column(overviewMain, 8, 0);
-  lv_obj_set_style_pad_row(overviewMain, 8, 0);
+  // The same gap as between the rows of the page, see layoutOverviewBoard.
+  lv_obj_set_style_pad_row(overviewMain, 6, 0);
   lv_obj_clear_flag(overviewMain, LV_OBJ_FLAG_SCROLLABLE);
 
   overviewAux = lv_obj_create(overviewRoot);
