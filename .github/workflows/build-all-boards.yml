@@ -131,7 +131,6 @@ jobs:
           OTHER_BOARDS: waveshare-s3-lcd7
         run: |
           VERSION=${{ steps.version.outputs.version }}
-          BOOT_APP0="$(find ~/.platformio/packages -path '*framework-arduinoespressif32*' -name boot_app0.bin | head -1)"
           for BOARD in $OTHER_BOARDS; do
             pio run -e "$BOARD"
             OUT=".pio/build/$BOARD"
@@ -143,11 +142,14 @@ jobs:
             fi
             cp "$OUT/firmware.bin" "SpoolmanScale-$BOARD.bin"
             cp "$OUT/firmware.bin" "SpoolmanScale-${BOARD}_${VERSION}.bin"
-            pio pkg exec --package tool-esptoolpy -- esptool.py --chip esp32s3 merge-bin \
-              -o "SpoolmanScale-${BOARD}_${VERSION}_factory.bin" \
-              --flash-mode dio --flash-freq 80m --flash-size 16MB \
-              0x0 "$OUT/bootloader.bin" 0x8000 "$OUT/partitions.bin" \
-              0xe000 "$BOOT_APP0" 0x10000 "$OUT/firmware.bin"
+            # The build has already put the four parts into one file. Merging
+            # them here with esptool failed on the runner, whose own Python
+            # lacks a module that tool imports.
+            if [ ! -s "$OUT/firmware.factory.bin" ]; then
+              echo "::error::$BOARD: the build left no firmware.factory.bin"
+              exit 1
+            fi
+            cp "$OUT/firmware.factory.bin" "SpoolmanScale-${BOARD}_${VERSION}_factory.bin"
           done
       - name: Update the public web flasher
         # Public tags only. An internal beta.N build would otherwise switch the
