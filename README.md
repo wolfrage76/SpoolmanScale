@@ -30,17 +30,19 @@ The WT32-SC01 Plus stays supported and is built from the same code.
 
 ## Download and updates
 
-Releases are on this repository's [Releases page](https://github.com/wolfrage76/Waveshare-Spoolman-Scale/releases). They are pre-releases for now.
+**First flash:** open the [Web Flasher](https://wolfrage76.github.io/Waveshare-Spoolman-Scale/) in Chrome or Edge, pick your board, connect it over USB and click the button. Nothing has to be installed.
+
+The same files are on this repository's [Releases page](https://github.com/wolfrage76/Waveshare-Spoolman-Scale/releases). They are pre-releases for now.
 
 | File | Board | Use |
 |---|---|---|
-| `SpoolmanScale-waveshare-s3-lcd7_<version>_factory.bin` | Waveshare 7" | First flash over USB, written at offset 0, see [BUILDING.md](BUILDING.md#waveshare-esp32-s3-touch-lcd-7) |
+| `SpoolmanScale-waveshare-s3-lcd7_<version>_factory.bin` | Waveshare 7" | First flash with `esptool` instead of the Web Flasher, written at offset 0, see [BUILDING.md](BUILDING.md#waveshare-esp32-s3-touch-lcd-7) |
 | `SpoolmanScale-waveshare-s3-lcd7_<version>.bin` | Waveshare 7" | Update through the scale's web page |
 | `SpoolmanScale_<version>.bin` | WT32-SC01 Plus | Update through the scale's web page |
 
 The two files without a version in their name are what a scale downloads when it updates itself.
 
-A scale running this fork looks for updates **here**, not at the original project. The original's Web Flasher does not carry the Waveshare image, so the first flash of that board goes over USB.
+A scale running this fork looks for updates **here**, not at the original project. The original's Web Flasher does not carry the Waveshare image; use the one linked above.
 
 ## How it relates to the original
 

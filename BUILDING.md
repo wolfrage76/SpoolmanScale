@@ -187,6 +187,8 @@ The load cell connects to the NAU7802 as described above.
 
 **Flashing**
 
+In the browser, with nothing to install: open the [Web Flasher](https://wolfrage76.github.io/Waveshare-Spoolman-Scale/#waveshare-s3-lcd7) in Chrome or Edge, with the board on its **USB** connector.
+
 With PlatformIO, from the repository:
 
 ```
