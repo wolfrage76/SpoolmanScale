@@ -463,21 +463,24 @@ int countAuxCards() {
 // The AMS cards, `count` of them shown, in their part of the page. One fills
 // it. Two stand one above the other, each as wide as the page. Three and four
 // make two rows of two. Bays stay side by side inside a card. `rowH` is the
-// height of a row in pixels, 0 while the page has no height to share out yet.
-void layoutMainCards(int count, int rowH) {
-  const uint32_t cardW = count <= 2 ? 100 : 48;
+// height of a row and `halfW` the width of one of two cards side by side, in
+// pixels, 0 while the page has no size to share out yet.
+void layoutMainCards(int count, int rowH, int halfW) {
+  const bool pair = count > 2;
   const uint32_t cardH = count <= 1 ? 100 : 48;
+  const int cardW = pair ? halfW : 0;
   for (int i = 0; i < AMS2PRO_COUNT; ++i) {
     lv_obj_t *card = overviewCards[i].root;
     if (!card) {
       continue;
     }
-    const uint32_t tag = (cardW << 24) | (cardH << 16) | static_cast<uint32_t>(rowH);
+    const uint32_t tag = (pair ? 1u << 31 : 0u) | (cardH << 24) |
+                         (static_cast<uint32_t>(cardW) << 12) | static_cast<uint32_t>(rowH);
     if (!styleValueChanged(card, PROP_STYLE_TAG, tag)) {
       continue;
     }
     lv_obj_set_flex_grow(card, 0);
-    lv_obj_set_width(card, lv_pct(cardW));
+    lv_obj_set_width(card, cardW > 0 ? cardW : lv_pct(pair ? 48 : 100));
     lv_obj_set_height(card, rowH > 0 ? rowH : lv_pct(cardH));
   }
 }
@@ -523,7 +526,11 @@ void layoutOverviewBoard() {
     lv_obj_set_height(overviewMain, lv_pct(100 * mainRows / rows));
     lv_obj_set_height(overviewAux, lv_pct(auxCount > 0 ? 100 / rows : 0));
   }
-  layoutMainCards(mainCount, rowH);
+  // Two cards side by side share the width the same way, so an AMS row ends
+  // where the row under it does: 48 percent each left it short of the edge.
+  const int colGap = lv_obj_get_style_pad_column(overviewMain, 0);
+  const int pageW = lv_obj_get_content_width(overviewMain);
+  layoutMainCards(mainCount, rowH, pageW > colGap ? (pageW - colGap) / 2 : 0);
 }
 
 void refreshOverviewBay(OverviewBay &bay, const OverviewUnit &unit, int index, bool cellBay,
