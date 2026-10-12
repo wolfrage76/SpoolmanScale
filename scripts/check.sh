@@ -193,6 +193,24 @@ for board in $(sed -nE 's/^\[env:([^]]+)\]$/\1/p' platformio.ini); do
   fi
 done
 
+# 12b. Every board of platformio.ini is built by CI and published by the
+#      release workflow. The two lists are written by hand in two files, and a
+#      board missing from one is built and never released, or released without
+#      ever having been built on a push.
+CI_YML=.github/workflows/ci.yml
+REL_YML=.github/workflows/build-all-boards.yml
+if [ -f "$CI_YML" ] && [ -f "$REL_YML" ]; then
+  ci_boards=$(sed -nE 's/^ *env: *\[(.*)\] *$/\1/p' "$CI_YML" | tr ',' ' ')
+  rel_boards="$(sed -nE 's/^ *env: *\[(.*)\] *$/\1/p' "$REL_YML" | tr ',' ' ') $(sed -nE 's/^ *OTHER_BOARDS: *(.*)$/\1/p' "$REL_YML")"
+  missing=""
+  for board in $(sed -nE 's/^\[env:([^]]+)\]$/\1/p' platformio.ini); do
+    case " $ci_boards " in *" $board "*) ;; *) missing="$missing $board(ci.yml)";; esac
+    case " $rel_boards " in *" $board "*) ;; *) missing="$missing $board(build-all-boards.yml)";; esac
+  done
+  if [ -n "$missing" ]; then bad "boards of platformio.ini missing in a workflow:$missing"
+  else ok "every board of platformio.ini is in both workflows"; fi
+fi
+
 # 13. The web pages' palettes against the panel's. The stylesheet in
 #     web/web_static.cpp is written by hand, not generated from
 #     ui/theme_palette.h, so a colour changed on one side stays as it was on
