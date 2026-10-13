@@ -13,8 +13,9 @@
 //  It exists only on a board with BOARD_NATIVE_W and _H, and only with
 //  FilaMan as the backend: no other describes a spool with several colours, a
 //  finish and a maker. There the AMS chip in the header opens it, and the AMS
-//  view every other board goes to is one tap further: a unit, or the list
-//  symbol in the header. Everything that asks or writes - a bay's card, an
+//  view every other board goes to is one tap further: the list symbol in the
+//  header, or a bay, which opens that bay's card over it. Closing either
+//  comes back here. Everything that asks or writes - a bay's card, an
 //  assignment - stays in that view, which is why this page can be the one
 //  screen that is not 480x320.
 //

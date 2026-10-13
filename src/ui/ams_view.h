@@ -52,6 +52,10 @@ void requestAmsViewFromScaleMenu();
 // are read. Closing the card, or the page, goes back to the board.
 void requestAmsViewBay(int ams_id, int tray_id);
 
+// The page in BROWSE mode for the board's list symbol: closing it goes back
+// to the board and not to the main screen.
+void requestAmsViewFromBoard();
+
 // Runs the parked work: build, fetch, redraw, close. Called from appLoop().
 void handleAmsViewDeferredActions();
 

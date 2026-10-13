@@ -206,6 +206,11 @@ void requestAmsView(AmsViewMode mode, AmsPickCb cb, const char* headline) {
   s_build_pending = true;
 }
 
+void requestAmsViewFromBoard() {
+  requestAmsView(AMS_VIEW_BROWSE);
+  s_return_to_board = true;
+}
+
 void requestAmsViewBay(int ams_id, int tray_id) {
   requestAmsView(AMS_VIEW_BROWSE);
   s_return_to_board = true;

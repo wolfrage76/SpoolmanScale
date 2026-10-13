@@ -114,10 +114,10 @@ static void toClassicCb(lv_event_t* e) {
 }
 
 // A tap on a unit. On a bay with a spool in it, that bay's card; anywhere
-// else on the unit, the AMS view as the list symbol opens it.
+// else on the unit, nothing: the page stays.
 static void cardCb(lv_event_t* e) {
   int ams = -1, tray = -1;
-  if (!amsboard::viewBayAt(e, ams, tray)) { toClassicCb(e); return; }
+  if (!amsboard::viewBayAt(e, ams, tray)) return;
   logSDf("UI: AMS board -> card of bay %d/%d", ams, tray);
   s_bay_ams     = ams;
   s_bay_tray    = tray;
@@ -343,7 +343,7 @@ void handleAmsBoardDeferredActions() {
 
   if (s_classic_pending) {
     destroyAmsBoard();
-    requestAmsView(AMS_VIEW_BROWSE);
+    requestAmsViewFromBoard();
     return;
   }
 
