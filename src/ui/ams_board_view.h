@@ -15,6 +15,10 @@ namespace amsboard {
 // no memory for it.
 bool viewBuild(lv_obj_t *parent, lv_event_cb_t on_card);
 
+// The bay under the tap `on_card` was called for, as the server addresses
+// it. False for a tap on a unit's header or edge, and for an empty bay.
+bool viewBayAt(lv_event_t *event, int &amsId, int &slot);
+
 // After the parent was deleted: drops every pointer into it.
 void viewForget();
 

@@ -157,6 +157,13 @@ static uint32_t      s_pick_stall    = 0;
 // from the header chip, the zone-4 button or the picker it lands on the main
 // screen, which is where those were pressed.
 static bool s_return_to_scale_menu = false;
+// Opened by the AMS board for one bay's card, see requestAmsViewBay(). The
+// page then goes back to the board, and so does the card once it was up.
+enum BoardCard : uint8_t { BOARD_CARD_NONE, BOARD_CARD_WANTED, BOARD_CARD_ASKED, BOARD_CARD_UP };
+static bool      s_return_to_board = false;
+static BoardCard s_board_card      = BOARD_CARD_NONE;
+static int       s_board_ams       = -1;
+static int       s_board_tray      = -1;
 
 // Packs a bay into user_data. A pointer sized integer holds both, and the
 // pair is what the callback needs - an index into the grid would be wrong
@@ -194,7 +201,17 @@ void requestAmsView(AmsViewMode mode, AmsPickCb cb, const char* headline) {
   s_detail_ams     = -1;
   s_detail_tray    = -1;
   s_return_to_scale_menu = false;
+  s_return_to_board = false;
+  s_board_card      = BOARD_CARD_NONE;
   s_build_pending = true;
+}
+
+void requestAmsViewBay(int ams_id, int tray_id) {
+  requestAmsView(AMS_VIEW_BROWSE);
+  s_return_to_board = true;
+  s_board_card      = BOARD_CARD_WANTED;
+  s_board_ams       = ams_id;
+  s_board_tray      = tray_id;
 }
 
 void requestAmsViewFromScaleMenu() {
@@ -251,6 +268,8 @@ void destroyAmsView() {
   s_fetch_pending = false;
   s_close_pending = false;
   s_return_to_scale_menu = false;
+  s_return_to_board = false;
+  s_board_card      = BOARD_CARD_NONE;
   // Unlike s_pick_pending below, this one goes: it opens a card over a page
   // that is being torn down, and there is nothing left to open it against.
   s_detail_pending = false;
@@ -1285,6 +1304,12 @@ void handleAmsViewDeferredActions() {
     // Back without a tap on a PICK page is an answer too: "not now".
     signalDismissIfUnanswered();
     closeAmsView();
+    if (s_return_to_board) {
+      s_return_to_board = false;
+      s_board_card      = BOARD_CARD_NONE;
+      requestAmsBoard();
+      return;
+    }
     if (s_return_to_scale_menu && scr_scale_sub) {
       // The menu is still there, hidden by the build: showing it again puts
       // the user back on the row they came from, scroll position included.
@@ -1321,7 +1346,22 @@ void handleAmsViewDeferredActions() {
     s_detail_ams  = -1;
     s_detail_tray = -1;
     openDetail(ams, tray);
+    if (s_board_card == BOARD_CARD_ASKED) {
+      s_board_card = isAmsDetailPopupOpen() ? BOARD_CARD_UP : BOARD_CARD_NONE;
+    }
     return;
+  }
+
+  // The card the board asked for was closed: back to the board, which is
+  // where the bay was tapped. Not when the page itself was put away by
+  // something else coming up; that took the card with it and leads elsewhere.
+  if (s_board_card == BOARD_CARD_UP && !isAmsDetailPopupOpen()) {
+    s_board_card = BOARD_CARD_NONE;
+    if (s_scr && !lv_obj_has_flag(s_scr, LV_OBJ_FLAG_HIDDEN)) {
+      s_close_pending = true;
+      return;
+    }
+    s_return_to_board = false;
   }
 
   if (s_build_pending) {
@@ -1344,6 +1384,19 @@ void handleAmsViewDeferredActions() {
     // A reload or a printer switch is a tap on the page, and the list only
     // stands to be chosen from once it is drawn.
     restartPickCountdown();
+    // The bay the board was tapped on, now that the bays are known. One the
+    // server no longer lists leaves the page standing as it is.
+    if (s_board_card == BOARD_CARD_WANTED) {
+      s_board_card = BOARD_CARD_NONE;
+      if (trayExists(s_board_ams, s_board_tray)) {
+        s_detail_ams     = s_board_ams;
+        s_detail_tray    = s_board_tray;
+        s_detail_pending = true;
+        s_board_card     = BOARD_CARD_ASKED;
+      } else {
+        logSDf("AMSVIEW: the board's bay %d/%d is not among the bays", s_board_ams, s_board_tray);
+      }
+    }
     return;
   }
 

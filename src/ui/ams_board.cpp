@@ -50,6 +50,10 @@ static int            s_printer_id  = 0;
 static bool          s_open_pending    = false;
 static bool          s_close_pending   = false;
 static bool          s_classic_pending = false;
+// A bay was tapped: its card, which is the AMS view's and 480x320.
+static bool          s_bay_pending     = false;
+static int           s_bay_ams         = -1;
+static int           s_bay_tray        = -1;
 static bool          s_next_pending    = false;
 static bool          s_fetch_now       = false;
 static unsigned long s_last_fetch_ms   = 0;
@@ -69,6 +73,7 @@ void destroyAmsBoard() {
   s_open_pending    = false;
   s_close_pending   = false;
   s_classic_pending = false;
+  s_bay_pending     = false;
   s_next_pending    = false;
   s_fetch_now       = false;
   if (!s_scr) return;
@@ -106,6 +111,17 @@ static void toClassicCb(lv_event_t* e) {
   (void)e;
   logSD("UI: AMS board -> AMS view");
   s_classic_pending = true;
+}
+
+// A tap on a unit. On a bay with a spool in it, that bay's card; anywhere
+// else on the unit, the AMS view as the list symbol opens it.
+static void cardCb(lv_event_t* e) {
+  int ams = -1, tray = -1;
+  if (!amsboard::viewBayAt(e, ams, tray)) { toClassicCb(e); return; }
+  logSDf("UI: AMS board -> card of bay %d/%d", ams, tray);
+  s_bay_ams     = ams;
+  s_bay_tray    = tray;
+  s_bay_pending = true;
 }
 
 static void buildScreen() {
@@ -180,7 +196,7 @@ static void buildScreen() {
   lv_obj_set_flex_flow(content, LV_FLEX_FLOW_COLUMN);
   lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
 
-  if (!amsboard::viewBuild(content, toClassicCb)) {
+  if (!amsboard::viewBuild(content, cardCb)) {
     logSD("AMSBOARD: no memory for the page");
     return;
   }
@@ -315,6 +331,13 @@ void handleAmsBoardDeferredActions() {
 
   if (s_close_pending) {
     showMainScreen();      // takes this page down on its way, see navigation.cpp
+    return;
+  }
+
+  if (s_bay_pending) {
+    const int ams = s_bay_ams, tray = s_bay_tray;
+    destroyAmsBoard();
+    requestAmsViewBay(ams, tray);
     return;
   }
 

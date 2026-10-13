@@ -753,6 +753,47 @@ bool viewBuild(lv_obj_t *parent, lv_event_cb_t on_card) {
   return true;
 }
 
+bool viewBayAt(lv_event_t *event, int &amsId, int &slot) {
+  // A bay hands its clicks to its card, so the card is what was hit and the
+  // bay is found by where the finger is.
+  const int index = static_cast<int>(reinterpret_cast<intptr_t>(lv_event_get_user_data(event)));
+  lv_indev_t *indev = lv_indev_get_act();
+  if (index < 0 || index >= MAX_OVERVIEW_CARDS || !indev || !overviewUnits) {
+    return false;
+  }
+  lv_point_t at;
+  lv_indev_get_point(indev, &at);
+  const OverviewCardBind &b = cardBinds[index];
+  const OverviewCard &card = overviewCards[index];
+  for (int c = 0; c < MAX_OVERVIEW_SLOTS; ++c) {
+    lv_obj_t *bay = card.bays[c].root;
+    if (!bay || lv_obj_has_flag(bay, LV_OBJ_FLAG_HIDDEN)) {
+      continue;
+    }
+    lv_area_t area;
+    lv_obj_get_coords(bay, &area);
+    if (at.x < area.x1 || at.x > area.x2 || at.y < area.y1 || at.y > area.y2) {
+      continue;
+    }
+    // A card of several AMS-HT shows the one bay of each, a card of one unit
+    // shows that unit's bays.
+    const bool grouped = b.count > 1;
+    const int unitIdx = grouped ? (c < b.count ? b.src[c] : -1) : (b.count == 1 ? b.src[0] : -1);
+    if (unitIdx < 0 || unitIdx >= overviewUnitCount) {
+      return false;
+    }
+    const OverviewUnit &unit = overviewUnits[unitIdx];
+    const int s = grouped ? 0 : c;
+    if (s >= unit.slotCount || unit.slots[s].empty) {
+      return false;
+    }
+    amsId = unit.amsId;
+    slot = unit.slots[s].slot;
+    return true;
+  }
+  return false;
+}
+
 void viewForget() {
   // The widgets went with their parent. Every pointer to them goes too, the
   // cache first: it knows widgets by address, and the next page's widgets

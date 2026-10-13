@@ -47,6 +47,11 @@ void requestAmsView(AmsViewMode mode, AmsPickCb cb = nullptr,
 // rather than to the main screen, because that is where it was opened.
 void requestAmsViewFromScaleMenu();
 
+// For the AMS board, whose bays have no card of their own: the page in
+// BROWSE mode with the card of that bay opened over it as soon as the bays
+// are read. Closing the card, or the page, goes back to the board.
+void requestAmsViewBay(int ams_id, int tray_id);
+
 // Runs the parked work: build, fetch, redraw, close. Called from appLoop().
 void handleAmsViewDeferredActions();
 
