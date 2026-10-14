@@ -28,6 +28,13 @@ The WT32-SC01 Plus stays supported and is built from the same code.
 | Waveshare ESP32-S3-Touch-LCD-7 (800×480) | This fork |
 | Waveshare 7B (1024×600) or another board | Not supported yet |
 
+## Enclosure for the Waveshare 7"
+
+There is a printable enclosure for the Waveshare ESP32-S3-Touch-LCD-7 version, the **7" Spoolman T-Scale**, on MakerWorld:
+👉 [7" Spoolman T-Scale (Waveshare ESP32-S3-Touch-LCD-7)](https://makerworld.com/en/models/3429397-7-spoolman-t-scale-waveshare-esp32-s3-touch-7)
+
+The enclosure further down this page is the original project's and fits the WT32-SC01 Plus only.
+
 ## Download and updates
 
 **First flash:** open the [Web Flasher](https://wolfrage76.github.io/Waveshare-Spoolman-Scale/) in Chrome or Edge, pick your board, connect it over USB and click the button. Nothing has to be installed.
@@ -46,7 +53,7 @@ A scale running this fork looks for updates **here**, not at the original projec
 
 ## How it relates to the original
 
-This fork follows the original's `dev` branch and merges it regularly; version numbers are the original's. A release of this fork's own between two of the original's carries a counter at the end, `v0.8.3-beta.51-w1`: newer than `v0.8.3-beta.51`, older than `v0.8.3-beta.52`. The build guide, the enclosure, the documentation site and the Discord further down this page all belong to the original project and describe the WT32-SC01 Plus. There is no printable enclosure for the Waveshare board yet.
+This fork follows the original's `dev` branch and merges it regularly; version numbers are the original's. A release of this fork's own between two of the original's carries a counter at the end, `v0.8.3-beta.51-w1`: newer than `v0.8.3-beta.51`, older than `v0.8.3-beta.52`. The build guide, the enclosure, the documentation site and the Discord further down this page all belong to the original project and describe the WT32-SC01 Plus. The enclosure for the Waveshare board is [the one above](#enclosure-for-the-waveshare-7).
 
 Problems with the Waveshare board or with anything in the list above belong to this fork. Please do not report them to the original project.
 
