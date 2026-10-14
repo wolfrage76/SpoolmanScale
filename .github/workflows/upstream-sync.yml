@@ -180,37 +180,43 @@ jobs:
             # A sync pull request was merged by hand, or main got there on its own.
             echo "$U is in main already, only the version is set"
           elif ! git merge --no-edit --no-ff -m "Merge upstream $U" "$U"; then
-            # Both sides change FW_VERSION in every release, so that line
-            # conflicts each time and is settled here. Anything else needs a
-            # person.
+            # Both sides change the version in every release, FW_VERSION in
+            # app_config.h and the Version line of the main.cpp header, so
+            # those lines conflict each time and are settled here, as ours
+            # with the new version. Anything else needs a person.
             if ! python3 - "$F" <<'PY'
           import re, subprocess, sys
           new = sys.argv[1]
+          version_lines = {
+              "src/app_config.h": (re.compile(r'^(\s*#define\s+FW_VERSION\s+)".*"'), r'\g<1>"%s"'),
+              "src/main.cpp":     (re.compile(r'^(//\s+Version:\s+)\S+'), r'\g<1>%s'),
+          }
           files = subprocess.run(["git", "diff", "--name-only", "--diff-filter=U"],
                                  capture_output=True, text=True, check=True).stdout.split()
-          if files != ["src/app_config.h"]:
+          if not files or any(f not in version_lines for f in files):
               print("conflicts beyond the version:", " ".join(files))
               sys.exit(1)
-          path = files[0]
-          out, side, hunk = [], None, {"ours": [], "theirs": []}
-          version_line = re.compile(r'^\s*#define\s+FW_VERSION\b')
-          for line in open(path).read().splitlines(keepends=True):
-              if line.startswith("<<<<<<< "):
-                  side, hunk = "ours", {"ours": [], "theirs": []}
-              elif line.startswith("=======") and side == "ours":
-                  side = "theirs"
-              elif line.startswith(">>>>>>> ") and side == "theirs":
-                  lines = hunk["ours"] + hunk["theirs"]
-                  if not lines or not all(version_line.match(l) for l in lines):
-                      print("src/app_config.h conflicts beyond FW_VERSION")
-                      sys.exit(1)
-                  out.append(f'#define FW_VERSION  "{new}"\n')
-                  side = None
-              elif side:
-                  hunk[side].append(line)
-              else:
-                  out.append(line)
-          open(path, "w").write("".join(out))
+          for path in files:
+              pattern, repl = version_lines[path]
+              out, side, hunk = [], None, {"ours": [], "theirs": []}
+              for line in open(path).read().splitlines(keepends=True):
+                  if line.startswith("<<<<<<< "):
+                      side, hunk = "ours", {"ours": [], "theirs": []}
+                  elif line.startswith("=======") and side == "ours":
+                      side = "theirs"
+                  elif line.startswith(">>>>>>> ") and side == "theirs":
+                      lines = hunk["ours"] + hunk["theirs"]
+                      if not hunk["ours"] or not all(pattern.match(l) for l in lines):
+                          print(f"{path} conflicts beyond the version")
+                          sys.exit(1)
+                      out += [pattern.sub(repl % new, l) for l in hunk["ours"]]
+                      side = None
+                  elif side:
+                      hunk[side].append(line)
+                  else:
+                      out.append(line)
+              open(path, "w").write("".join(out))
+              subprocess.run(["git", "add", path], check=True)
           PY
             then
               git merge --abort
@@ -228,16 +234,21 @@ jobs:
               echo "::error::$U does not merge cleanly, pull request opened"
               exit 1
             fi
-            git add src/app_config.h
             git commit --no-edit
           fi
 
+          # scripts/check.sh holds both places to the same version.
           sed -i -E "s/^(#define FW_VERSION[[:space:]]+)\".*\"/\1\"$F\"/" src/app_config.h
+          sed -i -E "s|^(//[[:space:]]+Version:[[:space:]]+)[^[:space:]]+|\1$F|" src/main.cpp
           if ! grep -q "#define FW_VERSION  *\"$F\"" src/app_config.h; then
             echo "::error::could not set FW_VERSION to $F"
             exit 1
           fi
-          git add src/app_config.h
+          if ! grep -qE "^//[[:space:]]+Version:[[:space:]]+$F\$" src/main.cpp; then
+            echo "::error::could not set the Version line of the main.cpp header to $F"
+            exit 1
+          fi
+          git add src/app_config.h src/main.cpp
           git diff --cached --quiet || git commit -m "chore(sync): release upstream $U as $F"
           # Checked from this branch, not from main: main only moves once
           # everything has passed.
