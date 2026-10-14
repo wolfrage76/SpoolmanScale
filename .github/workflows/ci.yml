@@ -3,7 +3,17 @@ name: CI
 # Every push to a working branch and every pull request: the house rules of
 # this project as a script, and a firmware build. The release itself stays
 # in build-all-boards.yml and runs on a tag push only.
+#
+# upstream-sync.yml calls this file as well, with the branch it merged
+# upstream into as "ref", so a synced release passes exactly the checks a
+# push does.
 on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Branch, tag or commit to check out instead of the triggering one
+        type: string
+        required: false
   push:
     branches: [dev, main, 'feature/**', 'fix/**', 'feat/**']
     paths-ignore: ['manifest.json', 'manifest-*.json', 'index.html', 'version.json', 'webflasher/**', 'images/**', '*.md']
@@ -11,7 +21,7 @@ on:
     paths-ignore: ['manifest.json', 'manifest-*.json', 'index.html', 'version.json', 'webflasher/**', 'images/**', '*.md']
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ inputs.ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -21,6 +31,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - name: Setup Node (node --check for the page scripts)
         uses: actions/setup-node@v4
         with:
@@ -40,6 +52,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - name: Cache PlatformIO
         uses: actions/cache@v4
         with:

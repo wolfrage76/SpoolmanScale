@@ -1,0 +1,298 @@
+name: Upstream sync
+
+# Follows Niko11111/SpoolmanScale. When upstream publishes a new public
+# release (a GitHub Release that is not a pre-release, so v0.8.2 or
+# v0.8.3-beta but none of the internal beta.N builds), it is merged into main
+# here, checked by ci.yml for every board, and released as the same version
+# with this fork's counter: v0.8.3 becomes v0.8.3-w1. Pushing that tag starts
+# build-all-boards.yml, which does the actual release as for a hand-made tag.
+#
+# Nothing is released when the merge conflicts or a check fails. A pull
+# request against main is opened instead, and the run stops for that version
+# for as long as the pull request is open. Once it is merged, the next run
+# finds upstream already in main and releases it from there.
+#
+# "Checks" are scripts/check.sh and a build of every board. Nothing here runs
+# on a real scale, so a synced release is exactly as safe as those are.
+#
+# Needs the secret SYNC_TOKEN: a fine-grained token for this repository with
+# Contents, Pull requests and Workflows set to write. GITHUB_TOKEN will not do:
+# a tag it pushes starts no workflow, so build-all-boards.yml would never run,
+# and it may not push a merge that changes anything under .github/workflows.
+#
+# Only -w1 is automatic. A fork release of its own on the same upstream
+# version (-w2 and so on) is still tagged by hand.
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Upstream tag to sync instead of the latest public release
+        required: false
+        type: string
+      dry_run:
+        description: Merge and check, but neither open a pull request nor release
+        required: false
+        type: boolean
+        default: false
+
+# One sync at a time. A second run waits instead of merging the same tag again.
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  UPSTREAM: Niko11111/SpoolmanScale
+
+jobs:
+  detect:
+    name: Find a new upstream release
+    runs-on: ubuntu-latest
+    outputs:
+      upstream: ${{ steps.find.outputs.upstream }}
+      fork: ${{ steps.find.outputs.fork }}
+      branch: ${{ steps.find.outputs.branch }}
+      go: ${{ steps.find.outputs.go }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Decide whether there is anything to do
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          U="$INPUT_TAG"
+          if [ -z "$U" ]; then
+            U=$(gh release list -R "$UPSTREAM" --exclude-pre-releases --exclude-drafts \
+                  -L 1 --json tagName -q '.[0].tagName')
+          fi
+          if [ -z "$U" ]; then
+            echo "::error::found no public release of $UPSTREAM"
+            exit 1
+          fi
+          F="$U-w1"
+          BRANCH="upstream-sync/$U"
+          echo "upstream=$U" >> $GITHUB_OUTPUT
+          echo "fork=$F"     >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "go=false"    >> $GITHUB_OUTPUT
+          echo "latest public upstream release: $U"
+
+          # Already released here, by this workflow or by hand with any counter.
+          if [ -n "$(git ls-remote --tags origin "refs/tags/$U-w*")" ]; then
+            echo "$U is released here already"
+            exit 0
+          fi
+
+          # An earlier run left a pull request: that one has to be dealt with
+          # first. Without this every run would fail on it again, every 6 hours.
+          PR=$(gh pr list --head "$BRANCH" --state open --json url -q '.[0].url')
+          if [ -n "$PR" ]; then
+            echo "waiting for $PR"
+            exit 0
+          fi
+
+          # Only a version that ranks above both what devices were offered and
+          # what main is already at. This fork usually runs ahead of upstream's
+          # last public release (main at v0.8.3-beta.51 while upstream's latest
+          # is v0.8.2): releasing that main as v0.8.2-w1 would label newer code
+          # with an older version, and build-all-boards.yml would refuse it
+          # anyway. F equal to main's FW_VERSION is the case of a merged sync
+          # pull request and goes ahead. The ranking must stay identical to
+          # src/services/version_compare.cpp and to build-all-boards.yml.
+          CURRENT=$(grep '#define FW_VERSION' src/app_config.h | sed 's/.*"\(.*\)"/\1/')
+          python3 - "$F" "$CURRENT" <<'PY' || exit 0
+          import json, re, sys
+
+          def rank(v):
+              if not v:
+                  return -1
+              m = re.search(r"(\d+)\.(\d+)\.(\d+)", v)
+              if not m:
+                  return -1
+              major, minor, patch = (int(g) for g in m.groups())
+              beta = 999
+              b = v.find("beta")
+              if b != -1:
+                  beta = 0
+                  m2 = re.match(r"\.(\d+)", v[b + 4:])
+                  if m2:
+                      beta = int(m2.group(1))
+              fork = 0
+              m3 = re.search(r"-w(\d+)$", v)
+              if m3 and int(m3.group(1)) <= 999:
+                  fork = int(m3.group(1))
+              return (major * 10**9 + minor * 10**6 + patch * 10**3 + beta) * 1000 + fork
+
+          new, current = sys.argv[1], sys.argv[2]
+          try:
+              with open("version.json") as f:
+                  data = json.load(f)
+          except FileNotFoundError:
+              data = {}
+          published = max((data.get("stable") or "", data.get("prerelease") or ""), key=rank)
+          if rank(new) <= rank(published):
+              print(f"{new} does not rank above the published {published}, nothing to do")
+              sys.exit(1)
+          if rank(new) < rank(current):
+              print(f"main is at {current} already, ahead of {new}, nothing to do")
+              sys.exit(1)
+          print(f"{new} ranks above {published} and main's {current}")
+          PY
+          echo "go=true" >> $GITHUB_OUTPUT
+
+  merge:
+    name: Merge ${{ needs.detect.outputs.upstream }}
+    needs: detect
+    if: needs.detect.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      merged: ${{ steps.merge.outputs.merged }}
+    env:
+      U: ${{ needs.detect.outputs.upstream }}
+      F: ${{ needs.detect.outputs.fork }}
+      BRANCH: ${{ needs.detect.outputs.branch }}
+      DRY_RUN: ${{ inputs.dry_run || false }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN }}
+      - name: Merge the upstream tag and set the version
+        id: merge
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch --no-tags "https://github.com/$UPSTREAM.git" "refs/tags/$U:refs/tags/$U"
+
+          if git merge-base --is-ancestor "$U" HEAD; then
+            # A sync pull request was merged by hand, or main got there on its own.
+            echo "$U is in main already, only the version is set"
+          elif ! git merge --no-edit --no-ff -m "Merge upstream $U" "$U"; then
+            # Both sides change FW_VERSION in every release, so that line
+            # conflicts each time and is settled here. Anything else needs a
+            # person.
+            if ! python3 - "$F" <<'PY'
+          import re, subprocess, sys
+          new = sys.argv[1]
+          files = subprocess.run(["git", "diff", "--name-only", "--diff-filter=U"],
+                                 capture_output=True, text=True, check=True).stdout.split()
+          if files != ["src/app_config.h"]:
+              print("conflicts beyond the version:", " ".join(files))
+              sys.exit(1)
+          path = files[0]
+          out, side, hunk = [], None, {"ours": [], "theirs": []}
+          version_line = re.compile(r'^\s*#define\s+FW_VERSION\b')
+          for line in open(path).read().splitlines(keepends=True):
+              if line.startswith("<<<<<<< "):
+                  side, hunk = "ours", {"ours": [], "theirs": []}
+              elif line.startswith("=======") and side == "ours":
+                  side = "theirs"
+              elif line.startswith(">>>>>>> ") and side == "theirs":
+                  lines = hunk["ours"] + hunk["theirs"]
+                  if not lines or not all(version_line.match(l) for l in lines):
+                      print("src/app_config.h conflicts beyond FW_VERSION")
+                      sys.exit(1)
+                  out.append(f'#define FW_VERSION  "{new}"\n')
+                  side = None
+              elif side:
+                  hunk[side].append(line)
+              else:
+                  out.append(line)
+          open(path, "w").write("".join(out))
+          PY
+            then
+              git merge --abort
+              echo "merged=false" >> $GITHUB_OUTPUT
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "::error::$U does not merge cleanly (dry run, no pull request)"
+                exit 1
+              fi
+              # The branch is upstream's tag itself: the pull request shows
+              # the conflicts, and they can be resolved on GitHub or locally.
+              git push --force origin "$(git rev-parse "$U^{commit}"):refs/heads/$BRANCH"
+              gh pr create --base main --head "$BRANCH" \
+                --title "Sync upstream $U (conflicts)" \
+                --body "Upstream released $U and it does not merge into main by itself. Resolve the conflicts and merge this pull request; the next run of the Upstream sync workflow then checks every board and releases $F. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+              echo "::error::$U does not merge cleanly, pull request opened"
+              exit 1
+            fi
+            git add src/app_config.h
+            git commit --no-edit
+          fi
+
+          sed -i -E "s/^(#define FW_VERSION[[:space:]]+)\".*\"/\1\"$F\"/" src/app_config.h
+          if ! grep -q "#define FW_VERSION  *\"$F\"" src/app_config.h; then
+            echo "::error::could not set FW_VERSION to $F"
+            exit 1
+          fi
+          git add src/app_config.h
+          git diff --cached --quiet || git commit -m "chore(sync): release upstream $U as $F"
+          # Checked from this branch, not from main: main only moves once
+          # everything has passed.
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+          echo "merged=true" >> $GITHUB_OUTPUT
+
+  test:
+    name: Check
+    needs: [detect, merge]
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.detect.outputs.branch }}
+
+  release:
+    name: Release ${{ needs.detect.outputs.fork }}
+    needs: [detect, merge, test]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    env:
+      U: ${{ needs.detect.outputs.upstream }}
+      F: ${{ needs.detect.outputs.fork }}
+      BRANCH: ${{ needs.detect.outputs.branch }}
+    steps:
+      - name: Checkout the checked branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.detect.outputs.branch }}
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN }}
+      - name: Move main and push the tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # A plain push: if main moved since the merge it is refused as not
+          # a fast-forward, nothing is tagged, and the next run merges again
+          # on top of the new main.
+          git push origin "HEAD:refs/heads/main"
+          git tag -a "$F" -m "SpoolmanScale $F (upstream $U)"
+          # Pushed with SYNC_TOKEN, so build-all-boards.yml starts on it.
+          git push origin "refs/tags/$F"
+          git push origin --delete "$BRANCH" || true
+
+  report:
+    name: Open a pull request for the failed checks
+    needs: [detect, merge, test]
+    if: ${{ failure() && needs.merge.outputs.merged == 'true' && needs.test.result == 'failure' && !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open the pull request
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
+          U: ${{ needs.detect.outputs.upstream }}
+          F: ${{ needs.detect.outputs.fork }}
+          BRANCH: ${{ needs.detect.outputs.branch }}
+        run: |
+          gh pr create -R "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
+            --title "Sync upstream $U (checks failed)" \
+            --body "Upstream $U merged into main, but scripts/check.sh or a board build failed: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID. Fix it on this branch and merge; the next run of the Upstream sync workflow checks main again and releases $F."
