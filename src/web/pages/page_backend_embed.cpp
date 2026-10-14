@@ -68,19 +68,22 @@ static String stepsFilaman() {
 // the name comes first where there is one: it survives a new IP from the
 // router. The IP follows for the devices that do not resolve the name.
 static String stepsBambuddy() {
+  // The same two lines the status bar shows: the browser address, and the
+  // bare IP under it when the first line carries a name.
+  char url[96];
+  deviceBrowserUrl(url, sizeof(url));
   char alt[48];
   deviceAltAddress(alt, sizeof(alt));
-  char url[96];
   String h = F("<li><div>");
   h += T(STR_W_EMBED_BB_STEP1);
   h += F("</div></li><li><div>");
   h += T(STR_W_EMBED_BB_STEP2);
-  if (alt[0]) {
-    snprintf(url, sizeof(url), "http://%s/", deviceFqdn());
-    h += addressLine(url, false);
-  }
-  snprintf(url, sizeof(url), "http://%s/", wifiManagerLocalIP().toString().c_str());
   h += addressLine(url, false);
+  if (alt[0]) {
+    char alt_url[64];
+    snprintf(alt_url, sizeof(alt_url), "http://%s", alt);
+    h += addressLine(alt_url, false);
+  }
   h += F("<p class='hint'>");
   h += T(alt[0] ? STR_W_EMBED_BB_IP : STR_W_EMBED_BB_FIXIP);
   h += F("</p></div></li>");
@@ -89,16 +92,19 @@ static String stepsBambuddy() {
 
 // Folding is remembered per browser, so whoever has set it up once can put
 // it away. Copying falls back to execCommand: the scale is plain http, where
-// navigator.clipboard does not exist.
+// navigator.clipboard does not exist. When that fails too, the button says
+// so for a moment instead of staying mute.
 static String script() {
   String h = F("<script>(function(){var EM={copy:");
   h += jsStr(T(STR_W_COPY));
   h += F(",copied:");
   h += jsStr(T(STR_W_COPIED));
+  h += F(",failed:");
+  h += jsStr(T(STR_W_COPY_FAILED));
   h += F("},SHOW_MS=1500,KEY='emb_closed',d=document.getElementById('emb');if(!d)return;"
          "try{if(localStorage.getItem(KEY)==='1')d.open=false;}catch(e){}"
          "d.addEventListener('toggle',function(){try{localStorage.setItem(KEY,d.open?'0':'1');}catch(e){}});"
-         "function done(b,ok){if(!ok)return;b.textContent=EM.copied;"
+         "function done(b,ok){b.textContent=ok?EM.copied:EM.failed;"
          "setTimeout(function(){b.textContent=EM.copy;},SHOW_MS);}"
          "function copy(b){var txt=b.getAttribute('data-copy');"
          "if(navigator.clipboard&&window.isSecureContext){"

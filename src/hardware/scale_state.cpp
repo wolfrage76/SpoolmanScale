@@ -36,24 +36,17 @@ void resetScaleFilter() {
   scale_filter_full = false;
 }
 
-void scaleAutoTareTick(bool allowed) {
+void scaleAutoTareTick(bool allowed, float spread_g) {
   static unsigned long band_since_ms = 0;
   static unsigned long last_tare_ms  = 0;
   static uint16_t      tare_count    = 0;
   static float         tare_sum_g    = 0.0f;
 
   const float w = scale_weight_g;
-  bool candidate = g_auto_tare && allowed && scale_ready && scale_filter_full &&
-                   fabsf(cal_factor) >= CAL_FACTOR_MIN &&
-                   fabsf(w) >= AUTO_TARE_DEADZONE_G && fabsf(w) <= AUTO_TARE_BAND_G;
-  if (candidate) {
-    float lo = scale_filter_buf[0], hi = scale_filter_buf[0];
-    for (int i = 1; i < SCALE_FILTER_SIZE; i++) {
-      if (scale_filter_buf[i] < lo) lo = scale_filter_buf[i];
-      if (scale_filter_buf[i] > hi) hi = scale_filter_buf[i];
-    }
-    candidate = (hi - lo) <= AUTO_TARE_SPREAD_G;
-  }
+  const bool candidate = g_auto_tare && allowed && scale_ready && scale_filter_full &&
+                         fabsf(cal_factor) >= CAL_FACTOR_MIN &&
+                         fabsf(w) >= AUTO_TARE_DEADZONE_G && fabsf(w) <= AUTO_TARE_BAND_G &&
+                         spread_g <= AUTO_TARE_SPREAD_G;
   if (!candidate) { band_since_ms = 0; return; }
 
   const unsigned long now = millis();

@@ -852,12 +852,17 @@ static void openPicker() {
 }
 
 // An index the server says it has not got: an older Spoolman, or a FilaMan
-// without its FilamentDB plugin.
+// without its FilamentDB plugin. A database on another server than the
+// backend (the Spoolman behind BamBuddy) that does not answer at all: BamBuddy
+// knows it by an address the scale may not reach, such as a container's name.
 static void showLoadFailure(FdbJob job, int code) {
-  char text[96];
-  const bool missing = job == FDB_JOB_INDEX && (code == 404 || code == 405);
-  if (missing) copyT(text, sizeof(text), backendIsFilaMan() ? STR_DBPICK_FM_NO_PLUGIN : STR_DBPICK_NEEDS_NEWER);
-  else snprintf(text, sizeof(text), T(STR_DBPICK_FAILED), code);
+  char text[160];
+  const bool missing   = job == FDB_JOB_INDEX && (code == 404 || code == 405);
+  const bool elsewhere = job == FDB_JOB_INDEX && code < 0 &&
+                         strcmp(backendFdbBaseUrl(), backendBaseUrl()) != 0;
+  if (missing)        copyT(text, sizeof(text), backendIsFilaMan() ? STR_DBPICK_FM_NO_PLUGIN : STR_DBPICK_NEEDS_NEWER);
+  else if (elsewhere) snprintf(text, sizeof(text), T(STR_DBPICK_SM_UNREACHABLE), backendFdbBaseUrl());
+  else                snprintf(text, sizeof(text), T(STR_DBPICK_FAILED), code);
   showMessage(text);
 }
 

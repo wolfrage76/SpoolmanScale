@@ -53,9 +53,10 @@ void buildSettingsScreen() {
   backendText(T(STR_TILE_CONN_SUB), conn_sub, sizeof(conn_sub));
   struct { const char *icon; const char *label; const char *sub; uint32_t col; } tiles[] = {
     { LV_SYMBOL_WIFI,     T(STR_TILE_CONNECTION), conn_sub,                UI_COL_ROW },
-    // The label stays "Scale" even with none fitted: this tile is where the
-    // switch that turns it back on lives. Only the subtitle stops naming the
-    // two rows that are no longer in there.
+    // Spools first: most rows behind this tile are about spools and tags, the
+    // scale's own rows close the list. The label keeps "scale" even with none
+    // fitted, because the switch that turns it back on lives in there; only
+    // the subtitle stops naming calibration.
     { LV_SYMBOL_DRIVE,    T(STR_TILE_SCALE),
       T(g_scale_fitted ? STR_TILE_SCALE_SUB : STR_TILE_SCALE_SUB_OFF),         UI_COL_ROW },
     { LV_SYMBOL_IMAGE,    T(STR_TILE_DISPLAY),    T(STR_TILE_DISPLAY_SUB), UI_COL_ROW },
@@ -83,19 +84,19 @@ void buildSettingsScreen() {
     lv_label_set_text(ico, tiles[i].icon);
     lv_obj_set_style_text_color(ico, lv_color_hex(UI_COL_ACCENT), 0);
     lv_obj_set_style_text_font(ico, &lv_font_montserrat_ext_24, 0);
-    lv_obj_align(ico, LV_ALIGN_TOP_LEFT, 10, 8);
+    lv_obj_align(ico, LV_ALIGN_CENTER, 0, -30);
 
     lv_obj_t *lbl = lv_label_create(tile);
     lv_label_set_text(lbl, tiles[i].label);
     lv_obj_set_style_text_color(lbl, lv_color_hex(UI_COL_INK), 0);
     lv_obj_set_style_text_font(lbl, &lv_font_montserrat_ext_18, 0);
-    lv_obj_align(lbl, LV_ALIGN_CENTER, 0, -8);
+    lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
 
     lv_obj_t *sub = lv_label_create(tile);
     lv_label_set_text(sub, tiles[i].sub);
     lv_obj_set_style_text_color(sub, lv_color_hex(UI_COL_CAPTION), 0);
     lv_obj_set_style_text_font(sub, &lv_font_montserrat_ext_12, 0);
-    lv_obj_align(sub, LV_ALIGN_CENTER, 0, 16);
+    lv_obj_align(sub, LV_ALIGN_CENTER, 0, 22);
 
     lv_obj_add_event_cb(tile, [](lv_event_t *e) {
       intptr_t idx = (intptr_t)lv_event_get_user_data(e);

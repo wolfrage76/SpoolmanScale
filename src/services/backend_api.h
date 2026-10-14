@@ -300,11 +300,16 @@ bool backendCanCreateFromTag();
 // The backend's filament database, for a spool without a maker's chip
 // (services/filament_db.h holds what these load): SpoolmanDB behind Spoolman
 // 0.27 and later, the FilamentDB behind FilaMan, the colour catalogue of a
-// BamBuddy that keeps its own inventory. The loads block their caller and run
-// on filament_db's own task, never on the loop; base_url is the copy that
-// task took. Each returns the HTTP code. Only FilaMan needs the pairs load:
-// its index names makers alone.
+// BamBuddy that keeps its own inventory, and the SpoolmanDB of the Spoolman
+// server a BamBuddy keeps its inventory on. The loads block their caller and
+// run on filament_db's own task, never on the loop; base_url is the copy
+// that task took of backendFdbBaseUrl(). Each returns the HTTP code. Only
+// FilaMan needs the pairs load: its index names makers alone.
 bool backendCanBrowseFilamentDb();
+// The server the database, a tag's filament plan and the filament live on:
+// the backend itself, or the Spoolman behind a BamBuddy that keeps its
+// spools there.
+const char* backendFdbBaseUrl();
 int  backendFdbLoadIndex(const char* base_url);
 int  backendFdbLoadPairs(const char* base_url, const char* maker);
 int  backendFdbLoadEntries(const char* base_url, const char* maker, const char* material);

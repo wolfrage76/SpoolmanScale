@@ -64,11 +64,15 @@ SpiRamAllocator s_psram;
 //  Which form
 // ------------------------------------------------------------
 
-// Per backend generation. Two tasks may probe at once the first time (the
-// picker's index on its task, a tag's plan elsewhere): both write the same
-// answer, so the race costs one request at most.
+// Per backend generation and server address. Two tasks may probe at once the
+// first time (the picker's index on its task, a tag's plan elsewhere): both
+// write the same answer, so the race costs one request at most, and so does
+// a compare against a half-written address. The address is kept because a
+// BamBuddy that moves its inventory onto a Spoolman server keeps its
+// generation while the server behind this probe changes.
 static SmFdbForm s_form       = SM_FDB_UNKNOWN;
 static uint32_t  s_form_gen   = 0;
+static char      s_form_base[96] = "";
 static int       s_probe_code = 0;
 
 static bool readNothing(Stream&, void*) { return true; }
@@ -81,7 +85,8 @@ static bool saysNo(int code) { return code == 404 || code == 405; }
 
 SmFdbForm spoolmanFdbForm(const char* base_url) {
   const uint32_t gen = backendGeneration();
-  if (s_form != SM_FDB_UNKNOWN && s_form_gen == gen) return s_form;
+  if (s_form != SM_FDB_UNKNOWN && s_form_gen == gen &&
+      strncmp(s_form_base, base_url, sizeof(s_form_base)) == 0) return s_form;
   int code = probe(base_url, SM_FDB_INDEX_PATH);
   SmFdbForm form = SM_FDB_UNKNOWN;
   if (code == 200) {
@@ -96,6 +101,7 @@ SmFdbForm spoolmanFdbForm(const char* base_url) {
   s_probe_code = code;
   s_form       = form;
   s_form_gen   = gen;
+  snprintf(s_form_base, sizeof(s_form_base), "%s", base_url);
   return form;
 }
 

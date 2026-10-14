@@ -49,8 +49,10 @@ void loadPrefs() {
     prefsPutFloat("cal_factor", cal_factor);
   }
   zero_offset = prefsGetInt("zero_offset", 0);
-  // No bag until one is entered. A value saved before this default changed
-  // is still in NVS and wins.
+  // No bag until one is entered. Only a value saved on the bag screen
+  // survives this default: an installation that never opened that screen ran
+  // on the old 50 g default and starts without a bag from 0.8.3 on, which
+  // the release notes say.
   bag_weight_g = prefsGetFloat("bag_weight", 0.0f);
 
   spool_list_limit = (int)prefsGetUChar("list_limit", 30);

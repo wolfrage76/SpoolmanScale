@@ -400,11 +400,9 @@ void showConfirmPopup(const char* msg, int action) {
     // Settled here, with the same arithmetic the weight buttons use, so the
     // reactivate button below can name the number it will write.
     s_reactivate_g = (netto_plain < 0) ? 0.0f : netto_plain;
-    float netto_bag   = netto_plain - bag_weight_g;
     if (netto_plain < 0) netto_plain = 0;
-    if (netto_bag   < 0) netto_bag   = 0;
 
-    // ── Zeile 1 Links: Ohne Beutel ──
+    // ── Row 1 left: without bag ──
     lv_obj_t *btn1 = lv_btn_create(box);
     // Without a bag this is the only weight button and takes the whole row.
     lv_obj_set_size(btn1, bagInUse() ? BW2 : BOX_W - 2*EDGE, H_ROW1);
@@ -430,7 +428,7 @@ void showConfirmPopup(const char* msg, int action) {
     lv_obj_center(l1);
 
     if (bagInUse()) {
-      // ── Zeile 1 Rechts: Mit Beutel ──
+      // ── Row 1 right: with bag ──
       lv_obj_t *btn2 = lv_btn_create(box);
       lv_obj_set_size(btn2, BW2, H_ROW1);
       lv_obj_set_pos(btn2, XR, Y1);

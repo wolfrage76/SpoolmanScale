@@ -1659,6 +1659,8 @@ enum StringID {
   STR_W_EMBED_NOTE,
   STR_W_EMBED_HTTPS,
   STR_W_OPEN,
+  STR_W_COPY_FAILED,
+  STR_DBPICK_SM_UNREACHABLE,
 
   // The AMS board: its title, a name that stays as it is in every language,
   // and the line in the middle of the page until the server has answered

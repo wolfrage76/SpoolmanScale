@@ -749,20 +749,34 @@ bool backendCanCreateFromTag() {
   return true;
 }
 
-// BamBuddy with Spoolman behind it creates through the proxy, which drops
-// most of a picked entry: its colour catalogue only for its own inventory.
+// BamBuddy's colour catalogue is the database of its own inventory only.
 static bool bambuddyHasColorCatalog() {
   return backendMode() == BACKEND_BAMBUDDY && bbInventoryMode() == BB_INV_LOCAL;
 }
 
+// A BamBuddy that keeps its spools on a Spoolman server, whose address it
+// told the scale. That server's own database and filaments are used
+// directly, the way the drying date side channel does: the proxy would
+// rebuild a picked entry as "Material Subtype" without temperatures, article
+// number or external_id, next to the filaments SpoolmanDB already made.
+static bool bambuddyBehindSpoolman() {
+  return backendMode() == BACKEND_BAMBUDDY && bbInventoryMode() == BB_INV_SPOOLMAN &&
+         bbSpoolmanUrl()[0] != '\0';
+}
+
+const char* backendFdbBaseUrl() {
+  return bambuddyBehindSpoolman() ? bbSpoolmanUrl() : backendBaseUrl();
+}
+
 bool backendCanBrowseFilamentDb() {
   return backendMode() == BACKEND_SPOOLMAN || backendMode() == BACKEND_FILAMAN ||
-         bambuddyHasColorCatalog();
+         bambuddyHasColorCatalog() || bambuddyBehindSpoolman();
 }
 
 int backendFdbLoadIndex(const char* base_url) {
   if (backendIsFilaMan()) return filamanFdbLoadIndex(base_url, filamanApiKey());
   if (bambuddyHasColorCatalog()) return bambuddyFdbLoadIndex(base_url, bambuddyApiKey());
+  if (bambuddyBehindSpoolman()) return spoolmanFdbLoadIndex(base_url);
   if (backendMode() != BACKEND_SPOOLMAN) return notSupported("FdbLoadIndex");
   return spoolmanFdbLoadIndex(base_url);
 }
@@ -775,12 +789,15 @@ int backendFdbLoadPairs(const char* base_url, const char* maker) {
 int backendFdbLoadEntries(const char* base_url, const char* maker, const char* material) {
   if (backendIsFilaMan()) return filamanFdbLoadEntries(base_url, filamanApiKey(), maker, material);
   if (bambuddyHasColorCatalog()) return bambuddyFdbLoadEntries(base_url, bambuddyApiKey(), maker, material);
+  if (bambuddyBehindSpoolman()) return spoolmanFdbLoadEntries(base_url, maker, material);
   if (backendMode() != BACKEND_SPOOLMAN) return notSupported("FdbLoadEntries");
   return spoolmanFdbLoadEntries(base_url, maker, material);
 }
 
 void backendFdbCompleteInput(TagCreateInput* in) {
-  if (backendMode() == BACKEND_BAMBUDDY) bambuddyFdbCompleteInput(in);
+  // A SpoolmanDB entry brings its own names; only the colour catalogue
+  // leaves them to the scale.
+  if (bambuddyHasColorCatalog()) bambuddyFdbCompleteInput(in);
 }
 
 void backendLookupColorName(const char* hex6, const char* material,
@@ -844,7 +861,8 @@ void backendPlanTagFilament(const TagCreateInput& in, TagFilamentPlan* plan) {
       filamanPlanTagFilament(backendBaseUrl(), filamanApiKey(), in, plan);
       break;
     case BACKEND_BAMBUDDY:
-      planBamBuddyColor(in, plan);
+      if (bambuddyBehindSpoolman()) spoolmanPlanTagFilament(backendFdbBaseUrl(), in, plan);
+      else                          planBamBuddyColor(in, plan);
       break;
     default:
       spoolmanPlanTagFilament(backendBaseUrl(), in, plan);
@@ -864,7 +882,7 @@ static int filamentForSpool(const TagCreateInput& in, const TagFilamentPlan& pla
   if (plan.state != TFS_CREATE_DB && plan.state != TFS_CREATE_TAG) return -1;
   const int code = backendIsFilaMan()
     ? filamanCreateTagFilament(backendBaseUrl(), filamanApiKey(), in, plan, out_id)
-    : spoolmanCreateTagFilament(backendBaseUrl(), in, plan, out_id);
+    : spoolmanCreateTagFilament(backendFdbBaseUrl(), in, plan, out_id);
   out->filament_id = *out_id;
   if (*out_id > 0) return 200;
   // A success without an id is no filament either.
@@ -882,11 +900,52 @@ static void patchSpoolPrice(int spool_id, float price, TagCreateResult* out) {
   if (out->price_lost) logSDf("Tag create: price %.2f for spool %d -> HTTP %d", price, spool_id, code);
 }
 
+// The filament on the Spoolman server behind BamBuddy, found or made there
+// as in Spoolman mode; then the spool through BamBuddy under that filament's
+// id. BamBuddy keeps doing what it does for its own spools (the price, the
+// colour name in extra), and the tag link afterwards stays the proxy's.
+static int bambuddyCreateUnderSpoolman(const TagCreateInput& in, const TagFilamentPlan& plan,
+                                       const TagSpoolValues& v, TagCreateResult* out) {
+  int filament_id = 0;
+  const int code = filamentForSpool(in, plan, out, &filament_id);
+  if (code != 200) return code;
+  BbNewSpool ns;
+  ns.spoolman_filament_id = filament_id;
+  // Ignored by BamBuddy once the id is set, but the request insists on one.
+  ns.material     = in.material;
+  ns.brand        = in.vendor;
+  // Only a real colour name (a Bambu tag's, from the catalog): a SpoolmanDB
+  // entry names no colour of its own, and BamBuddy derives the display from
+  // the Spoolman filament anyway, as it does for every other spool there.
+  ns.color_name   = in.color_name_en;
+  ns.label_weight = v.label_weight;
+  // The tag's empty spool, else the one Spoolman's database gave the filament.
+  ns.core_weight  = in.spool_weight_g > 0 ? in.spool_weight_g : plan.spool_weight_g;
+  if (v.price > 0.0f && v.label_weight > 0) ns.cost_per_kg = v.price * 1000.0f / (float)v.label_weight;
+  ns.weight_used  = (float)v.label_weight - v.remaining;
+  if (ns.weight_used < 0.0f) ns.weight_used = 0.0f;
+  out->spool_sent = true;
+  bool warned = false;
+  const int sc = bbCreateSpool(backendBaseUrl(), bambuddyApiKey(), ns, &out->spool_id,
+                               BB_CREATE_TIMEOUT_MS, &warned);
+  // The proxy's one step after the spool is the price: a warning with a
+  // price given is that step.
+  out->price_lost = warned && v.price > 0.0f;
+  return sc;
+}
+
 int backendCreateFromTag(const TagCreateInput& in, const TagFilamentPlan& plan,
                          const TagSpoolValues& v, TagCreateResult* out) {
   HttpStallTime stall(__func__);   // the loop stands still for this call
   *out = TagCreateResult{};
-  if (backendIsBamBuddy()) return bambuddyCreateFromTag(in, plan, v, out);
+  if (backendIsBamBuddy()) {
+    // A plan from the colour catalogue has nothing to make first, and a mode
+    // that moved between plan and create is served by the path that works
+    // in both: the proxy's own create.
+    const bool proxy = plan.state == TFS_NOT_NEEDED || !bambuddyBehindSpoolman();
+    return proxy ? bambuddyCreateFromTag(in, plan, v, out)
+                 : bambuddyCreateUnderSpoolman(in, plan, v, out);
+  }
   int filament_id = 0;
   int code = filamentForSpool(in, plan, out, &filament_id);
   if (code != 200) return code;

@@ -164,7 +164,6 @@ static const char APP_CSS[] PROGMEM =
       ".steps>li>div{padding-top:3px}.steps a{color:var(--accent)}.steps p.hint{margin-top:6px}"
       ".addrline{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}"
       ".addrline .mono{background:var(--quiet);border:1px solid var(--line);border-radius:8px;padding:5px 10px;color:var(--ink)}"
-      ".addrline button{padding:5px 12px;font-size:13px}"
       ".note b{color:var(--ink-2);font-weight:500}"
       // data rows: mono only for machine strings
       ".rows{display:flex;flex-direction:column}"

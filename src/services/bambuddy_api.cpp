@@ -1089,14 +1089,9 @@ int bbLookupColorName(const char* base_url, const char* api_key, const char* hex
   return 200;
 }
 
-int bbCreateSpool(const char* base_url, const char* api_key,
-                  const BbNewSpool& spool, int* out_spool_id,
-                  uint32_t timeout_ms) {
-  if (out_spool_id) *out_spool_id = 0;
-  if (!hasBaseUrl(base_url) || !spool.material || !spool.material[0]) return -1;
-
-  JsonDocument body;
+static void newSpoolBody(const BbNewSpool& spool, JsonDocument& body) {
   body["material"] = spool.material;
+  if (spool.spoolman_filament_id > 0) body["spoolman_filament_id"] = spool.spoolman_filament_id;
   if (spool.subtype    && spool.subtype[0])    body["subtype"]    = spool.subtype;
   if (spool.brand      && spool.brand[0])      body["brand"]      = spool.brand;
   if (spool.color_name && spool.color_name[0]) body["color_name"] = spool.color_name;
@@ -1115,36 +1110,59 @@ int bbCreateSpool(const char* base_url, const char* api_key,
   if (spool.effect_type     && spool.effect_type[0])     body["effect_type"]     = spool.effect_type;
   if (spool.material_number && spool.material_number[0]) body["material_number"] = spool.material_number;
   if (spool.cost_per_kg > 0.0f) body["cost_per_kg"] = roundf(spool.cost_per_kg * 100.0f) / 100.0f;
+}
+
+// Worth a line of its own: behind the Spoolman proxy an empty brand makes
+// the server build a filament with no vendor and a name cut to the bare
+// material, which looks like data loss on the display but starts here.
+// Serial as well as SD: without a card logSDf() is a no-op, and this is the
+// line that tells an empty vendor or colour apart from a server that
+// dropped them.
+static void logNewSpool(const BbNewSpool& spool) {
+  Serial.printf("BamBuddy create: mat='%s' sub='%s' brand='%s' col='%s' fil=%d label=%d core=%d used=%.0f\n",
+                spool.material,
+                spool.subtype    ? spool.subtype    : "",
+                spool.brand      ? spool.brand      : "",
+                spool.color_name ? spool.color_name : "",
+                spool.spoolman_filament_id, spool.label_weight, spool.core_weight, spool.weight_used);
+  logSDf("BamBuddy create: mat=%s sub=%s brand=%s col=%s fil=%d label=%d core=%d used=%.0f",
+         spool.material,
+         spool.subtype    ? spool.subtype    : "",
+         spool.brand      ? spool.brand      : "",
+         spool.color_name ? spool.color_name : "",
+         spool.spoolman_filament_id, spool.label_weight, spool.core_weight, spool.weight_used);
+}
+
+int bbCreateSpool(const char* base_url, const char* api_key,
+                  const BbNewSpool& spool, int* out_spool_id,
+                  uint32_t timeout_ms, bool* out_warned) {
+  if (out_spool_id) *out_spool_id = 0;
+  if (out_warned)   *out_warned   = false;
+  if (!hasBaseUrl(base_url) || !spool.material || !spool.material[0]) return -1;
+
+  JsonDocument body;
+  newSpoolBody(spool, body);
 
   char url[192];
   snprintf(url, sizeof(url), "%s%s/spools", base_url, bbInventoryBase());
 
   String out, resp;
   serializeJson(body, out);
-  // Worth a line of its own: behind the Spoolman proxy an empty brand makes
-  // the server build a filament with no vendor and a name cut to the bare
-  // material, which looks like data loss on the display but starts here.
-  // Serial as well as SD: without a card logSDf() is a no-op, and this is the
-  // line that tells an empty vendor or colour apart from a server that
-  // dropped them.
-  Serial.printf("BamBuddy create: mat='%s' sub='%s' brand='%s' col='%s' label=%d core=%d used=%.0f\n",
-                spool.material,
-                spool.subtype    ? spool.subtype    : "",
-                spool.brand      ? spool.brand      : "",
-                spool.color_name ? spool.color_name : "",
-                spool.label_weight, spool.core_weight, spool.weight_used);
-  logSDf("BamBuddy create: mat=%s sub=%s brand=%s col=%s label=%d core=%d used=%.0f",
-         spool.material,
-         spool.subtype    ? spool.subtype    : "",
-         spool.brand      ? spool.brand      : "",
-         spool.color_name ? spool.color_name : "",
-         spool.label_weight, spool.core_weight, spool.weight_used);
+  logNewSpool(spool);
   int code = sendJson("POST", url, api_key, out, timeout_ms, &resp);
   if (code != 200) return code;
 
   JsonDocument doc;
   if (deserializeJson(doc, resp)) return -2;
   if (out_spool_id) *out_spool_id = doc["id"] | 0;
+  // sendJson folds every 2xx into 200: a 207 - spool made, a step after it
+  // refused - arrives here as a success with its warnings in the body.
+  JsonArrayConst warnings = doc["warnings"].as<JsonArrayConst>();
+  if (warnings.size() > 0) {
+    logSDf("BamBuddy create: spool %d made with a warning: %s",
+           (int)(doc["id"] | 0), warnings[0] | "");
+    if (out_warned) *out_warned = true;
+  }
   return 200;
 }
 

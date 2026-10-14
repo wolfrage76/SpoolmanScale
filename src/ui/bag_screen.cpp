@@ -147,7 +147,9 @@ void buildBagScreen() {
   lv_obj_set_style_border_color(btn_ok_b, lv_color_hex(UI_COL_GO_BG_PRESSED), 0);
   lv_obj_add_event_cb(btn_ok_b, [](lv_event_t *e) {
     if (!lbl_bag_result_global) return;
-    float w = atof(bag_input);
+    // Whole grams: every row that shows the bag rounds to them, and
+    // bagInUse() must not say yes to a value those rows call 0 g.
+    float w = roundf(atof(bag_input));
     if (w >= 0 && w < 1000) {
       // The main screen is built once, with or without the bag lines, so a
       // value that crosses 0 needs the same restart as the scale switch. A

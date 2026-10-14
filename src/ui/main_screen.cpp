@@ -921,9 +921,10 @@ void buildUI() {
   lv_obj_set_style_text_font(lbl_menu, &lv_font_montserrat_ext_16, 0);
   lv_obj_center(lbl_menu);
 
-  // Notification dot on the burger button. It hangs on the screen rather than
-  // on the button bar, because a child of the bar would be clipped at the bar's
-  // edge and half of this dot sits outside it.
+  // Notification dot on the burger button, a child of the button itself:
+  // createUpdateBadge() lets the button stop clipping, and the dot's centre
+  // on the button's corner still lies inside the button bar, so the bar's own
+  // clipping never reaches it.
   lbl_burger_badge = createUpdateBadge(btn_menu);
 
   // Header chips and the status bar address are packed from their real

@@ -1308,9 +1308,9 @@ void appLoop() {
     if (scale_filter_idx == 0) scale_filter_full = true;
     int count = scale_filter_full ? SCALE_FILTER_SIZE : scale_filter_idx;
     float sum = 0;
-    // Peak to peak of the same window, for free: the diagnosis needs to know
-    // how far the readings scatter, and this loop already walks every one of
-    // them to build the average.
+    // Peak to peak of the same window, for free: the diagnosis and the
+    // auto-tare need to know how far the readings scatter, and this loop
+    // already walks every one of them to build the average.
     float lo = scale_filter_buf[0], hi = scale_filter_buf[0];
     for (int i = 0; i < count; i++) {
       const float v = scale_filter_buf[i];
@@ -1335,7 +1335,8 @@ void appLoop() {
     // zero the user just set has to hold until the factor is computed.
     const bool calibrating = scr_factor && !lv_obj_has_flag(scr_factor, LV_OBJ_FLAG_HIDDEN);
     scaleAutoTareTick(!tag_present && !aw_adopted && !calibrating && !isConfirmPopupOpen() &&
-                      !isTareEntryOpen() && !isSpoolWeightScopeOpen());
+                      !isTareEntryOpen() && !isSpoolWeightScopeOpen(),
+                      scale_filter_full ? (hi - lo) : 0.0f);
 
     // Keep the reference fresh only while the tag is genuinely being read.
     // The guard used to ask nfc_absent_count, which is written to 0 at every

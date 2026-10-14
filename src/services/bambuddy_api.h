@@ -241,8 +241,12 @@ int  bbLookupColorName(const char* base_url, const char* api_key, const char* he
 
 // Fields for a new spool. material is the only one BamBuddy insists on;
 // everything else may stay empty or zero and is then left off the request.
+// Behind the Spoolman proxy, spoolman_filament_id puts the spool under a
+// filament that already exists on that server: BamBuddy then skips its own
+// find-or-create, which only knows material, name part, colour and brand.
 struct BbNewSpool {
-  const char* material        = nullptr;  // required
+  const char* material        = nullptr;  // required, even next to a filament id
+  int         spoolman_filament_id = 0;   // Spoolman proxy only, 0: none
   const char* subtype         = nullptr;
   const char* brand           = nullptr;
   const char* color_name      = nullptr;
@@ -267,9 +271,14 @@ struct BbNewSpool {
 // create schema and drops them without an error - the spool would come back
 // with HTTP 200 and no tag at all. Both modes therefore link afterwards
 // through bbLinkTag(), the one place that already tells them apart.
+//
+// Every 2xx counts as created. The Spoolman proxy answers 207 when the spool
+// exists but a step after it (the price) was refused; out_warned, when
+// given, says so.
+#define BB_CREATE_TIMEOUT_MS  8000
 int  bbCreateSpool(const char* base_url, const char* api_key,
        const BbNewSpool& spool, int* out_spool_id,
-       uint32_t timeout_ms = 8000);
+       uint32_t timeout_ms = BB_CREATE_TIMEOUT_MS, bool* out_warned = nullptr);
 
 // --- ams slots -----------------------------------------------
 

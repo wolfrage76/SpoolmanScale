@@ -1174,6 +1174,7 @@ void querySpoolman(const char* tray_uuid, LookupOrigin origin) {
   if (lbl_keys) lv_label_set_text(lbl_keys, "");
   if (lbl_raw_info) lv_label_set_text(lbl_raw_info, "");
   if (lbl_bag_sm_diff) lv_label_set_text(lbl_bag_sm_diff, "");
+  if (lbl_spool_tare) lv_label_set_text(lbl_spool_tare, "");
   // bei Bambu kommen diese Felder aus dem Tag selbst (updateDisplay) nicht aus Spoolman
   bool is_bambu_tag = (strlen(g_tag.material) > 0);
   // An NTAG carrying a record has just put the same three fields on screen, so

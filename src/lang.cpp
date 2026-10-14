@@ -69,16 +69,19 @@ const char* const STRINGS[][3] = {
   { "Spoolman Server", "Spoolman Server", "Serveur Spoolman" },  // STR_SPOOLMAN_TITLE
 
   // Settings
-  { "Einstellungen",               "Settings",                 "Réglages" },  // STR_SETTINGS_TITLE
-  { "Verbindung",                  "Connection",               "Connexion" },  // STR_TILE_CONNECTION
-  { "WLAN, Bluetooth & Server",    "WiFi, Bluetooth & server", "WiFi, Bluetooth, serveur" },  // STR_TILE_CONN_SUB
-  { "Waage",                       "Scale",                    "Balance" },  // STR_TILE_SCALE
-  { "Kalibrieren | Beutel | Mehr", "Calibrate | Bag | More",   "Étalonnage | Sachet | Plus" },  // STR_TILE_SCALE_SUB
-  { "Display",                     "Display",                  "Affichage" },  // STR_TILE_DISPLAY
-  { "Helligkeit & Timeout",        "Brightness & Timeout",     "Luminosité et veille" },  // STR_TILE_DISPLAY_SUB
-  { "System",                      "System",                   "Système" },  // STR_TILE_SYSTEM
-  { "Sprache | Update | Info", "Language | Update | Info",
-    "Langue | Mise à jour | Info" },  // STR_TILE_SYSTEM_SUB
+  { "Einstellungen",                  "Settings",                       "Réglages" },  // STR_SETTINGS_TITLE
+  { "Verbindung",                     "Connection",                     "Connexion" },  // STR_TILE_CONNECTION
+  { "WLAN | Bluetooth | Spoolman", "WiFi | Bluetooth | Spoolman",
+    "WiFi | Bluetooth | Spoolman" },  // STR_TILE_CONN_SUB
+  { "Spulen & Waage",                 "Spools & scale",                 "Bobines et balance" },  // STR_TILE_SCALE
+  { "Tags | Trocknung | Kalibrieren", "Tags | Drying | Calibration",
+    "Tags | Séchage | Étalonnage" },  // STR_TILE_SCALE_SUB
+  { "Display",                        "Display",                        "Affichage" },  // STR_TILE_DISPLAY
+  { "Helligkeit | Dimmen | Schlaf", "Brightness | Dim | Sleep",
+    "Luminosité | Atténuer | Veille" },  // STR_TILE_DISPLAY_SUB
+  { "System",                         "System",                         "Système" },  // STR_TILE_SYSTEM
+  { "Web | Update | Sprache | Info", "Web | Update | Language | Info",
+    "Web | Mise à jour | Langue | Info" },  // STR_TILE_SYSTEM_SUB
 
   // Connection
   { "WLAN-Einstellungen", "WiFi settings",     "Réglages WiFi" },  // STR_BTN_WIFI_SETTINGS
@@ -109,9 +112,9 @@ const char* const STRINGS[][3] = {
     "Limites de liste, séchage, affichage" },  // STR_WEB_CONFIG_SUB
 
   // Scale
-  { "Waage",         "Scale",       "Balance" },  // STR_SCALE_TITLE
-  { "Kalibrierung",  "Calibration", "Étalonnage" },  // STR_BTN_CALIBRATE
-  { "Beutelgewicht", "Bag weight",  "Poids du sachet" },  // STR_BTN_BAGWEIGHT
+  { "Spulen & Waage", "Spools & scale", "Bobines et balance" },  // STR_SCALE_TITLE
+  { "Kalibrierung",   "Calibration",    "Étalonnage" },  // STR_BTN_CALIBRATE
+  { "Beutelgewicht",  "Bag weight",     "Poids du sachet" },  // STR_BTN_BAGWEIGHT
 
   // Calibration
   { "Kalibrierung",             "Calibration",              "Étalonnage" },  // STR_CAL_TITLE
@@ -142,7 +145,7 @@ const char* const STRINGS[][3] = {
   // System
   { "System", "System",
     "Système" },  // STR_SYSTEM_TITLE
-  { "Deutsch / English", "Deutsch / English",
+  { "Deutsch / English / Français", "Deutsch / English / Français",
     "Deutsch / English / Français" },  // STR_BTN_LANG_SUB
   { "Firmware Update", "Firmware Update",
     "Mise à jour firmware" },  // STR_BTN_FW_UPDATE
@@ -2347,8 +2350,8 @@ const char* const STRINGS[][3] = {
     "switch such a device reports a fault it does not have, for good.\n\n"
     "Changing it needs a restart.",
     "Activé : l'appareil a un capteur de pesée et fonctionne exactement comme avant.\n\nDésactivé : toute la partie pesée disparaît. Le NAU7802 n'est même plus recherché au démarrage, l'écran principal affiche un message à la place des poids et plus rien là où se trouvait TARE, le bouton « Envoyer le poids » devient le bouton « Emplacement », et Étalonnage et Poids du sachet disparaissent de ce menu.\n\nPrévu pour un appareil composé seulement d'un écran et d'un lecteur : poser un tag, voir la bobine, lui attribuer un emplacement et une imprimante. Sans ce réglage, un tel appareil signale en permanence une panne qu'il n'a pas.\n\nLe changement nécessite un redémarrage." },  // STR_SCALE_FITTED_INFO
-  { "Ohne Waage | Mehr", "No scale | More", "Sans balance | Plus" },  // STR_TILE_SCALE_SUB_OFF
-  { "Waage vorhanden",   "Scale fitted",    "Balance présente" },  // STR_W_SCALE_FITTED
+  { "Tags | Trocknung | Mehr", "Tags | Drying | More", "Tags | Séchage | Plus" },  // STR_TILE_SCALE_SUB_OFF
+  { "Waage vorhanden",         "Scale fitted",         "Balance présente" },  // STR_W_SCALE_FITTED
   { "Aus, wenn das Gerät nur aus Display und Leser besteht. Braucht einen "
     "Neustart.",
     "Off if the device is display and reader only. Needs a restart.",
@@ -3623,6 +3626,12 @@ const char* const STRINGS[][3] = {
   { "Öffnen",
     "Open",
     "Ouvrir" },  // STR_W_OPEN
+  { "Kopieren fehlgeschlagen",
+    "Copy failed",
+    "Copie impossible" },  // STR_W_COPY_FAILED
+  { "Spoolman hinter BamBuddy ist von der Waage aus nicht erreichbar:\n%s",
+    "Spoolman behind BamBuddy cannot be reached from the scale:\n%s",
+    "Spoolman derrière BamBuddy est injoignable depuis la balance :\n%s" },  // STR_DBPICK_SM_UNREACHABLE
 
   // The AMS board: its title, a name that stays as it is in every language,
   // and the line in the middle of the page until the server has answered

@@ -298,6 +298,7 @@ STR_DBPICK_LINE_TITLE	14	452	NEVER	src/ui/db_pick_screen.cpp caption, DBP_ROW_W
 STR_DBPICK_LINE_OTHER	16	140	NEVER	src/ui/db_pick_screen.cpp line tile, 148 - 2 * (2 + 1) - 2
 STR_DBPICK_PICK_LETTER	14	452	WRAP:2	src/ui/db_pick_screen.cpp caption, DBP_ROW_W
 STR_DBPICK_FM_NO_PLUGIN	16	452	WRAP:3	src/ui/db_pick_screen.cpp message, DBP_ROW_W
+STR_DBPICK_SM_UNREACHABLE	16	452	WRAP:3	src/ui/db_pick_screen.cpp message, DBP_ROW_W
 STR_TAGNEW_FROM_FDB	16	360	NEVER	src/ui/tag_create_popup.cpp status line of the card, UI_POPUP_W - UI_CARD_TEXT_PAD
 STR_TAGDB_TITLE	20	400	NEVER	src/ui/tag_db_diff_popup.cpp title, UI_POPUP_W
 STR_TAGDB_TAG	14	116	NEVER	src/ui/tag_db_diff_popup.cpp column head, TDP_VALUE_W
@@ -316,3 +317,6 @@ STR_BB_DRIED_NATIVE_SUB	12	320	NEVER	src/ui/bambuddy_options_screen.cpp makeList
 STR_BB_DRIED_OLDER_ONLY	12	320	NEVER	src/ui/bambuddy_options_screen.cpp makeListBtn sub, text_w 320
 STR_PRN_OWN_LAYOUT	18	154	NEVER	src/ui/print_card.cpp:171 170 px button, -16 air
 STR_LBL_SPOOL_TARE_CAP	12	60	NEVER	src/ui/live_zone.cpp:55 caption at x=344, the column ends at 404
+STR_TILE_SYSTEM_SUB	12	206	NEVER	src/ui/settings_screen.cpp:95 tile subtitle, 226 px tile
+STR_TILE_DISPLAY_SUB	12	206	NEVER	src/ui/settings_screen.cpp:95 tile subtitle, 226 px tile
+STR_SCALE_TITLE	18	376	NEVER	src/ui/ui_common.cpp:259 sub header title, 480 - 2 * (44 + 2 * 4)

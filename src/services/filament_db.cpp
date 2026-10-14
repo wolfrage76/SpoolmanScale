@@ -32,11 +32,16 @@ static int       s_maker_n = 0;
 static int       s_pair_n  = 0;
 static int       s_entry_n = 0;
 static int       s_core_n  = 0;
-// The backend generation under which the server said it has no database.
+// The backend generation and server under which the server said it has no
+// database. The address counts next to the generation: a BamBuddy that moves
+// its inventory onto or off a Spoolman server keeps its generation, and the
+// picker's database moves with the inventory.
 static bool      s_missing     = false;
 static uint32_t  s_missing_gen = 0;
+static char      s_missing_base[96] = "";
 static bool      s_index_ok   = false;
 static uint32_t  s_index_gen  = 0;
+static char      s_index_base[96] = "";
 static uint32_t  s_index_ms   = 0;
 
 // ---- the job --------------------------------------------------------
@@ -51,6 +56,11 @@ static uint32_t s_gen  = 0;
 static char     s_base[96]     = "";
 static char     s_maker[32]    = "";
 static char     s_material[17] = "";
+
+// The server a result or an index came from is still the one to ask.
+static bool baseCurrent(const char* base) {
+  return strcmp(base, backendFdbBaseUrl()) == 0;
+}
 
 template <typename T>
 static T* psramArray(T* p, size_t n) {
@@ -274,7 +284,7 @@ static bool startTask(FdbJob job) {
   s_code  = 0;
   s_bytes = 0;
   s_gen   = backendGeneration();
-  snprintf(s_base, sizeof(s_base), "%s", backendBaseUrl());
+  snprintf(s_base, sizeof(s_base), "%s", backendFdbBaseUrl());
   s_state = FDB_RUNNING;   // before the task exists: it may finish at once
   if (xTaskCreatePinnedToCore(fdbTask, "filamentdb", FDB_STACK_BYTES, nullptr,
                               FDB_PRIORITY, nullptr, FDB_CORE) != pdPASS) {
@@ -324,11 +334,11 @@ FdbState fdbState() { return s_state; }
 FdbJob   fdbJob()   { return s_job; }
 size_t   fdbBytes() { return s_bytes; }
 int      fdbResultCode() { return s_code; }
-bool     fdbResultCurrent() { return s_gen == backendGeneration(); }
+bool     fdbResultCurrent() { return s_gen == backendGeneration() && baseCurrent(s_base); }
 
 bool fdbOffered() {
   if (!backendCanBrowseFilamentDb()) return false;
-  return !(s_missing && s_missing_gen == backendGeneration());
+  return !(s_missing && s_missing_gen == backendGeneration() && baseCurrent(s_missing_base));
 }
 
 void fdbTake() {
@@ -339,6 +349,7 @@ void fdbTake() {
   if (s_job == FDB_JOB_INDEX && (s_code == 404 || s_code == 405)) {
     s_missing = true;
     s_missing_gen = s_gen;
+    snprintf(s_missing_base, sizeof(s_missing_base), "%s", s_base);
   }
   if (s_job == FDB_JOB_PAIRS) {
     // The maker counts as looked at even without a material of 1.75 mm; a
@@ -351,6 +362,7 @@ void fdbTake() {
       s_index_ok  = true;
       s_index_gen = s_gen;
       s_index_ms  = millis();
+      snprintf(s_index_base, sizeof(s_index_base), "%s", s_base);
     } else {
       freeIndex();
     }
@@ -364,7 +376,7 @@ void fdbTake() {
 }
 
 bool fdbIndexReady() {
-  return s_index_ok && s_index_gen == backendGeneration() &&
+  return s_index_ok && s_index_gen == backendGeneration() && baseCurrent(s_index_base) &&
          millis() - s_index_ms < FDB_INDEX_MAX_AGE_MS;
 }
 

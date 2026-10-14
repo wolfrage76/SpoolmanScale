@@ -712,10 +712,12 @@ def baseline_refusal(old, metrics, force):
         return "fix these first, they are never part of a baseline: %s" % stuck
     if old is None or force:
         return None
-    _, problems, warnings = compare(old, metrics)
-    if problems or warnings:
+    # Warnings are files already over the line that grew, which the rules
+    # allow; they must not hold back a baseline that records a fallen number.
+    _, problems, _ = compare(old, metrics)
+    if problems:
         return ("numbers rose, and a baseline only ever follows them down:\n  "
-                + "\n  ".join(problems + warnings)
+                + "\n  ".join(problems)
                 + "\n--force is for a changed scanner, and the commit says so")
     return None
 
@@ -854,6 +856,8 @@ def selftest():
     check("refuses an open must-be-zero", baseline_refusal(None, {"delay_in_handler": 1}, True) is None, False)
     check("refuses a risen number", baseline_refusal(base, dict(base, inline_color_hex=11), False) is None, False)
     check("force lets a risen number through", baseline_refusal(base, dict(base, inline_color_hex=11), True), None)
+    check("a grown large file does not block the baseline",
+          baseline_refusal(base, dict(base, **{LINES_PREFIX + "src/a.cpp": 1210}), False), None)
     check("first baseline", baseline_refusal(None, base, False), None)
 
     for line in failed:
