@@ -28,12 +28,16 @@ The WT32-SC01 Plus stays supported and is built from the same code.
 | Waveshare ESP32-S3-Touch-LCD-7 (800×480) | This fork |
 | Waveshare 7B (1024×600) or another board | Not supported yet |
 
-## Enclosure for the Waveshare 7"
+## Enclosures
 
-There is a printable enclosure for the Waveshare ESP32-S3-Touch-LCD-7 version, the **7" Spoolman T-Scale**, on MakerWorld:
-👉 [7" Spoolman T-Scale (Waveshare ESP32-S3-Touch-LCD-7)](https://makerworld.com/en/models/3429397-7-spoolman-t-scale-waveshare-esp32-s3-touch-7)
+There is a printable enclosure for each board, the **Spoolman T-Scale**, on MakerWorld:
 
-The enclosure further down this page is the original project's and fits the WT32-SC01 Plus only.
+| Board | Enclosure |
+|---|---|
+| Waveshare ESP32-S3-Touch-LCD-7 | 👉 [7" Spoolman T-Scale](https://makerworld.com/en/models/3429397-7-spoolman-t-scale-waveshare-esp32-s3-touch-7) |
+| WT32-SC01 Plus | 👉 [Spoolman T-Scale](https://makerworld.com/en/models/3302257-spoolman-t-scale-filamant-scale-filaman-bambuddy#profileId-3747973) |
+
+For the WT32-SC01 Plus, the original project's enclosure further down this page fits as well.
 
 ## Download and updates
 
@@ -53,7 +57,7 @@ A scale running this fork looks for updates **here**, not at the original projec
 
 ## How it relates to the original
 
-This fork follows the original's `dev` branch and merges it regularly; version numbers are the original's. A release of this fork's own between two of the original's carries a counter at the end, `v0.8.3-beta.51-w1`: newer than `v0.8.3-beta.51`, older than `v0.8.3-beta.52`. The build guide, the enclosure, the documentation site and the Discord further down this page all belong to the original project and describe the WT32-SC01 Plus. The enclosure for the Waveshare board is [the one above](#enclosure-for-the-waveshare-7).
+This fork follows the original's releases: every few hours it checks for a new public release of the original, merges it, builds and checks every board, and if all of that passes, publishes it here as the same version with `-w1` at the end. Version numbers are the original's; the counter at the end marks a release of this fork, `v0.8.3-beta.51-w1`: newer than `v0.8.3-beta.51`, older than `v0.8.3-beta.52`. The build guide, the enclosure, the documentation site and the Discord further down this page all belong to the original project and describe the WT32-SC01 Plus. Enclosures for both boards are [listed above](#enclosures).
 
 Problems with the Waveshare board or with anything in the list above belong to this fork. Please do not report them to the original project.
 
