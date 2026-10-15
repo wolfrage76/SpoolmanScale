@@ -11,6 +11,10 @@
 > [!NOTE]
 > **This is a fork of [Niko11111/SpoolmanScale](https://github.com/Niko11111/SpoolmanScale).** It exists to run SpoolmanScale on boards other than the one the original is built for, first of all the **Waveshare ESP32-S3-Touch-LCD-7**. Everything the original does, this does too: the project, its design and nearly all of its code are Niko's. If you only have the WT32-SC01 Plus and no reason to be here, you can just use the original.
 
+<div align="center">
+<img src="images/waveshare-spoolmanscale.png" width="480" alt="Waveshare ESP32-S3-Touch-LCD-7 running SpoolmanScale, with a spool on the scale">
+</div>
+
 ## What this fork adds
 
 - **More than one board from one code base.** Everything a board decides (pins, panel, touch, backlight) lives in its own folder under `src/boards/`. The rest of the firmware names no board. How to add one is in [BUILDING.md](BUILDING.md#adding-a-board).
@@ -38,6 +42,15 @@ There is a printable enclosure for each board, the **Spoolman T-Scale**, on Make
 | WT32-SC01 Plus | 👉 [Spoolman T-Scale](https://makerworld.com/en/models/3302257-spoolman-t-scale-filamant-scale-filaman-bambuddy#profileId-3747973) |
 
 For the WT32-SC01 Plus, the original project's enclosure further down this page fits as well.
+
+## Building a Waveshare scale
+
+The parts are the same as for the WT32-SC01 Plus (PN532, NAU7802 and load cell, see the hardware list further down), with the Waveshare ESP32-S3-Touch-LCD-7 in place of the WT32. The wiring is not the WT32's:
+
+- The PN532 and the NAU7802 go on the board's **UART2 connector**, and the **UART selection switch** next to it must be set to **UART2**.
+- **Never connect the PN532 to the board's own I2C connector:** a chip on that bus answers on the same address and the reader would switch the backlight and the SD card off.
+
+Pin table, flashing and everything else that is different on this board: **[Waveshare wiring and setup in BUILDING.md](BUILDING.md#waveshare-esp32-s3-touch-lcd-7)**. The wiring guides on the original project's documentation site describe the WT32-SC01 Plus only.
 
 ## Download and updates
 
@@ -168,7 +181,7 @@ Over 200 people are running a SpoolmanScale, and it is tested daily against a Sp
 | Connector Cables | STEMMA QT / JST cables | [AliExpress](https://de.aliexpress.com/item/1005011904682215.html) |
 | Connector Cables (easier assembly) | Micro JST 1.0 SH 5-pin | [Amazon](https://amzn.eu/d/0aKJ4Va9) |
 
-The firmware also runs on the **Waveshare ESP32-S3-Touch-LCD-7** (7", 800×480), with the same UI enlarged to fit. See [Other Boards](BUILDING.md#other-boards) for wiring and flashing.
+The firmware also runs on the **Waveshare ESP32-S3-Touch-LCD-7** (7", 800×480), with the same UI enlarged to fit. See [Other Boards](BUILDING.md#other-boards) for wiring and flashing, and [Enclosures](#enclosures) for its case.
 
 Prefer everything in one cart? A community member put together an AliExpress list with parts that work well too: 👉 [SpoolmanScale parts list on AliExpress](https://www.aliexpress.com/p/wish-manage/share.html?spm=a2g0o.cart.headerAcount.6.321738dayZTIa0&wishGroupId=800000022363334&smbPageCode=wishlist-amp&spreadId=E95BDFF0E1B4367408F1423D8C0ABF206981C084C10F93E3EE124B0AFA678D69)
 
