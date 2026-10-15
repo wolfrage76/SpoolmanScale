@@ -32,7 +32,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          # Empty on a push or pull request: the commit that started the run.
+          ref: ${{ inputs.ref }}
       - name: Setup Node (node --check for the page scripts)
         uses: actions/setup-node@v4
         with:
@@ -53,7 +54,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          # Empty on a push or pull request: the commit that started the run.
+          ref: ${{ inputs.ref }}
       - name: Cache PlatformIO
         uses: actions/cache@v4
         with:
