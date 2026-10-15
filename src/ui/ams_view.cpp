@@ -1309,11 +1309,15 @@ void handleAmsViewDeferredActions() {
     // Back without a tap on a PICK page is an answer too: "not now".
     signalDismissIfUnanswered();
     closeAmsView();
+    // The board again, where it was opened from. One that can no longer
+    // open - the backend is not FilaMan any more - leaves the main screen.
     if (s_return_to_board) {
       s_return_to_board = false;
       s_board_card      = BOARD_CARD_NONE;
-      requestAmsBoard();
-      return;
+      if (amsBoardAvailable()) {
+        requestAmsBoard();
+        return;
+      }
     }
     if (s_return_to_scale_menu && scr_scale_sub) {
       // The menu is still there, hidden by the build: showing it again puts
