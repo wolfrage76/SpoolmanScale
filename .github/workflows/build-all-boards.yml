@@ -109,7 +109,9 @@ jobs:
               if b != -1:
                   beta = 0                # "-beta": the public release
                   m2 = re.match(r"\.(\d+)", v[b + 4:])
-                  if m2:
+                  # A counter only from 1 to 998, as version_compare.cpp:
+                  # 999 would rank with a final release.
+                  if m2 and 0 < int(m2.group(1)) <= 998:
                       beta = int(m2.group(1))
               # This fork's own counter, "-w1" at the very end: a release of
               # its own between two of upstream's. The lightest part, so it

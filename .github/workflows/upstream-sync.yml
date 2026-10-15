@@ -1,11 +1,13 @@
 name: Upstream sync
 
 # Follows Niko11111/SpoolmanScale. When upstream publishes a new public
-# release (a GitHub Release that is not a pre-release, so v0.8.2 or
-# v0.8.3-beta but none of the internal beta.N builds), it is merged into main
-# here, checked by ci.yml for every board, and released as the same version
-# with this fork's counter: v0.8.3 becomes v0.8.3-w1. Pushing that tag starts
-# build-all-boards.yml, which does the actual release as for a hand-made tag.
+# release (a GitHub Release that is not marked pre-release), it is merged
+# into main here, checked by ci.yml for every board, and released as the same
+# version with this fork's counter: v0.8.3 becomes v0.8.3-w1. Pushing that tag
+# starts build-all-boards.yml, which does the actual release as for a
+# hand-made tag. The upstream tag has to be vX.Y.Z or vX.Y.Z-beta.N:
+# scripts/check.sh refuses a bare -beta, so such a release fails the checks
+# and gets a pull request instead.
 #
 # Nothing is released when the merge conflicts or a check fails. A pull
 # request against main is opened instead, and the run stops for that version
@@ -123,7 +125,7 @@ jobs:
               if b != -1:
                   beta = 0
                   m2 = re.match(r"\.(\d+)", v[b + 4:])
-                  if m2:
+                  if m2 and 0 < int(m2.group(1)) <= 998:
                       beta = int(m2.group(1))
               fork = 0
               m3 = re.search(r"-w(\d+)$", v)
