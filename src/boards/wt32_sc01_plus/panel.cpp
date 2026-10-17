@@ -5,7 +5,16 @@
 
 #include <Arduino.h>
 #include <LovyanGFX.hpp>
+#include <driver/rtc_io.h>
 #include <esp_sleep.h>
+
+// LovyanGFX talks to the FT6336 on I2C port 0. Register 0xA4 is the interrupt
+// mode: 0 is polling, which does not hold INT low for a touch, and 1 is
+// trigger mode, which does until the points are read.
+static constexpr int      FT6336_I2C_PORT       = 0;
+static constexpr uint8_t  FT6336_ADDR           = 0x38;
+static constexpr uint8_t  FT6336_INTMODE_REG    = 0xA4;
+static constexpr uint8_t  FT6336_INTMODE_TRIGGER = 0x01;
 
 // No TwoWire object for the touch bus. LovyanGFX owns it: the Touch_FT5x06
 // config below carries the port, both pins and the frequency, and bus_shared is
@@ -126,6 +135,16 @@ void panelBacklightOn(uint8_t brightness) {
 }
 
 void panelPrepareDeepSleep() {
-  tft.setBrightness(0);
+  // setBrightness(0) leaves LEDC driving the pin. Detach it so the backlight
+  // stays off while the chip is asleep.
+  panelBacklightOff();
+  // Trigger mode holds GPIO7 low for the whole touch. The Arduino pull-up
+  // does not survive deep sleep; the RTC pull-up does, so the open-drain
+  // line idles high and a finger is a real low.
+  lgfx::i2c::writeRegister8(FT6336_I2C_PORT, FT6336_ADDR, FT6336_INTMODE_REG,
+                            FT6336_INTMODE_TRIGGER, 0, 400000);
+  pinMode(hw_pins::TOUCH_INT, INPUT_PULLUP);
+  rtc_gpio_pullup_en((gpio_num_t)hw_pins::TOUCH_INT);
+  rtc_gpio_pulldown_dis((gpio_num_t)hw_pins::TOUCH_INT);
   esp_sleep_enable_ext0_wakeup((gpio_num_t)hw_pins::TOUCH_INT, 0);
 }
