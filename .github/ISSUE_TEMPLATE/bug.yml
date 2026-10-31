@@ -30,7 +30,6 @@ body:
       label: Board
       options:
         - Waveshare ESP32-S3-Touch-LCD-7
-        - Waveshare ESP32-S3-Touch-LCD-4.3B
         - WT32-SC01 Plus
         - Another board
     validations:

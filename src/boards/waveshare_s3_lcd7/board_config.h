@@ -2,10 +2,9 @@
 
 #include <stdint.h>
 
-// Waveshare ESP32-S3-Touch-LCD-7 and ESP32-S3-Touch-LCD-4.3B: ESP32-S3 with
-// 16 MB flash and 8 MB octal PSRAM, an 800x480 panel on a 16 bit RGB bus,
-// GT911 touch, and a CH422G I/O expander for everything the RGB bus left no
-// pin for. Same pins on both sizes, so one image.
+// Waveshare ESP32-S3-Touch-LCD-7: ESP32-S3 with 16 MB flash and 8 MB octal
+// PSRAM, a 7 inch 800x480 panel on a 16 bit RGB bus, GT911 touch, and a
+// CH422G I/O expander for everything the RGB bus left no pin for.
 //
 // The UI is drawn at 480x320 as on every board and enlarged on the way to the
 // glass until it fills the panel: 5:3 across, 3:2 down. See panel.cpp.

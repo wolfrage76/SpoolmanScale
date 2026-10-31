@@ -18,7 +18,7 @@
 ## What this fork adds
 
 - **More than one board from one code base.** Everything a board decides (pins, panel, touch, backlight) lives in its own folder under `src/boards/`. The rest of the firmware names no board. How to add one is in [BUILDING.md](BUILDING.md#adding-a-board).
-- **The Waveshare ESP32-S3-Touch-LCD-7** (7", 800×480) **and the ESP32-S3-Touch-LCD-4.3B** (4.3", same 800×480). Same firmware image for both. The UI is the WT32-SC01 Plus layout enlarged to fill the panel, with every screen and setting. Wiring and what is different: [Other Boards](BUILDING.md#other-boards).
+- **The Waveshare ESP32-S3-Touch-LCD-7** (7", 800×480). It shows the same UI as the WT32-SC01 Plus, enlarged to fill the panel, with every screen and setting. Wiring and what is different on this board: [Other Boards](BUILDING.md#other-boards).
 - **The Guition JC3248W535C** (3.5"). The glass is 320×480 and the firmware turns it to 480×320, so the UI is the same size as on the WT32-SC01 Plus. Wiring and what is different: [Guition JC3248W535C](BUILDING.md#guition-jc3248w535c).
 - **An AMS board for the larger panel.** With FilaMan as the backend, the AMS view opens a page at the panel's full 800×480 that shows every AMS and AMS-HT at once: each bay with its filament colour, material, brand and what is left.
 - **An image per board.** Every release carries one firmware file for each board, and the upload in the browser refuses a file built for another board.
@@ -31,7 +31,6 @@ The WT32-SC01 Plus stays supported and is built from the same code.
 |---|---|
 | WT32-SC01 Plus | The [original](https://github.com/Niko11111/SpoolmanScale), unless you want something from the list above |
 | Waveshare ESP32-S3-Touch-LCD-7 (800×480) | This fork (`waveshare-s3-lcd7`) |
-| Waveshare ESP32-S3-Touch-LCD-4.3B (800×480) | This fork, same image as the 7" |
 | Guition JC3248W535C (3.5", 480×320 landscape) | This fork (`guition-jc3248w535c`) |
 | Waveshare 7B (1024×600) or another board | Not supported yet |
 
@@ -42,14 +41,13 @@ There is a printable enclosure for the Waveshare boards and the WT32-SC01 Plus, 
 | Board | Enclosure |
 |---|---|
 | Waveshare ESP32-S3-Touch-LCD-7 | 👉 [7" Spoolman T-Scale](https://makerworld.com/en/models/3429397-7-spoolman-t-scale-waveshare-esp32-s3-touch-7) |
-| Waveshare ESP32-S3-Touch-LCD-4.3B | 👉 [4.3" Spoolman T-Scale](https://makerworld.com/en/models/3500125-4-3-spoolman-t-scale-waveshare-esp32-s3-43b) |
 | WT32-SC01 Plus | 👉 [Spoolman T-Scale](https://makerworld.com/en/models/3302257-spoolman-t-scale-filamant-scale-filaman-bambuddy#profileId-3747973) |
 
 For the WT32-SC01 Plus, the original project's enclosure further down this page fits as well.
 
 ## Building a Waveshare scale
 
-The parts are the same as for the WT32-SC01 Plus (PN532, NAU7802 and load cell, see the hardware list further down), with a Waveshare ESP32-S3-Touch-LCD-7 or **4.3B** in place of the WT32. The wiring is not the WT32's:
+The parts are the same as for the WT32-SC01 Plus (PN532, NAU7802 and load cell, see the hardware list further down), with the Waveshare ESP32-S3-Touch-LCD-7 in place of the WT32. The wiring is not the WT32's:
 
 - The PN532 and the NAU7802 go on the board's **UART2 connector**, and the **UART selection switch** next to it must be set to **UART2**.
 - **Never connect the PN532 to the board's own I2C connector:** a chip on that bus answers on the same address and the reader would switch the backlight and the SD card off.
@@ -70,8 +68,8 @@ The same files are on this repository's [Releases page](https://github.com/wolfr
 
 | File | Board | Use |
 |---|---|---|
-| `SpoolmanScale-waveshare-s3-lcd7_<version>_factory.bin` | Waveshare 7" and 4.3B | First flash with `esptool` instead of the Web Flasher, written at offset 0, see [BUILDING.md](BUILDING.md#waveshare-esp32-s3-touch-lcd-7) |
-| `SpoolmanScale-waveshare-s3-lcd7_<version>.bin` | Waveshare 7" and 4.3B | Update through the scale's web page |
+| `SpoolmanScale-waveshare-s3-lcd7_<version>_factory.bin` | Waveshare 7" | First flash with `esptool` instead of the Web Flasher, written at offset 0, see [BUILDING.md](BUILDING.md#waveshare-esp32-s3-touch-lcd-7) |
+| `SpoolmanScale-waveshare-s3-lcd7_<version>.bin` | Waveshare 7" | Update through the scale's web page |
 | `SpoolmanScale-guition-jc3248w535c_<version>_factory.bin` | Guition JC3248W535C | First flash with `esptool` instead of the Web Flasher, written at offset 0, see [BUILDING.md](BUILDING.md#guition-jc3248w535c) |
 | `SpoolmanScale-guition-jc3248w535c_<version>.bin` | Guition JC3248W535C | Update through the scale's web page |
 | `SpoolmanScale_<version>.bin` | WT32-SC01 Plus | Update through the scale's web page |
@@ -193,7 +191,7 @@ Over 200 people are running a SpoolmanScale, and it is tested daily against a Sp
 | Connector Cables | STEMMA QT / JST cables | [AliExpress](https://de.aliexpress.com/item/1005011904682215.html) |
 | Connector Cables (easier assembly) | Micro JST 1.0 SH 5-pin | [Amazon](https://amzn.eu/d/0aKJ4Va9) |
 
-The firmware also runs on the **Waveshare ESP32-S3-Touch-LCD-7** and **ESP32-S3-Touch-LCD-4.3B** (both 800×480), with the same UI enlarged to fit and one shared image. See [Other Boards](BUILDING.md#other-boards) for wiring and flashing, and [Enclosures](#enclosures) for the 7" case.
+The firmware also runs on the **Waveshare ESP32-S3-Touch-LCD-7** (7", 800×480), with the same UI enlarged to fit. See [Other Boards](BUILDING.md#other-boards) for wiring and flashing, and [Enclosures](#enclosures) for its case.
 
 Prefer everything in one cart? A community member put together an AliExpress list with parts that work well too: 👉 [SpoolmanScale parts list on AliExpress](https://www.aliexpress.com/p/wish-manage/share.html?spm=a2g0o.cart.headerAcount.6.321738dayZTIa0&wishGroupId=800000022363334&smbPageCode=wishlist-amp&spreadId=E95BDFF0E1B4367408F1423D8C0ABF206981C084C10F93E3EE124B0AFA678D69)
 

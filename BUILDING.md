@@ -155,14 +155,13 @@ The firmware is built for one board at a time. Everything above describes the WT
 |---|---|---|---|
 | WT32-SC01 Plus | `wt32-sc01-plus` | 480×320, native | the reference board |
 | Waveshare ESP32-S3-Touch-LCD-7 | `waveshare-s3-lcd7` | 800×480, the 480×320 UI enlarged to fill it | new, see the notes below |
-| Waveshare ESP32-S3-Touch-LCD-4.3B | `waveshare-s3-lcd7` | same image as the 7" | confirmed, same wiring |
 | Guition JC3248W535C | `guition-jc3248w535c` | 320×480 turned to the UI's own 480×320 | first unit connected 28.10.2026 |
 
-The Waveshare ESP32-S3-Touch-LCD-7 has its own printable enclosure, the [7" Spoolman T-Scale](https://makerworld.com/en/models/3429397-7-spoolman-t-scale-waveshare-esp32-s3-touch-7) on MakerWorld. The 4.3B uses the same firmware; there is no enclosure listed for it yet.
+The Waveshare ESP32-S3-Touch-LCD-7 has its own printable enclosure, the [7" Spoolman T-Scale](https://makerworld.com/en/models/3429397-7-spoolman-t-scale-waveshare-esp32-s3-touch-7) on MakerWorld.
 
-### Waveshare ESP32-S3-Touch-LCD-7 (and 4.3B)
+### Waveshare ESP32-S3-Touch-LCD-7
 
-The 800×480 boards with the ESP32-S3-WROOM-1-N16R8 module (16 MB flash, 8 MB PSRAM): the 7" and the **4.3B**. They share the same RGB panel pinout, touch and CH422G expander, so one image (`waveshare-s3-lcd7`) runs on both. The 1024×600 "7B" is a different board and is not supported.
+The 7" 800×480 board with the ESP32-S3-WROOM-1-N16R8 module (16 MB flash, 8 MB PSRAM). The 1024×600 "7B" is a different board and is not supported. The 4.3" sibling, the 4.3B, has the same panel pins but different connectors; see the [note at the end of this section](#the-43b-untested).
 
 **What is different on this board**
 
@@ -208,6 +207,42 @@ esptool --chip esp32s3 write-flash 0x0 SpoolmanScale-waveshare-s3-lcd7_<version>
 If the board is not found: hold **BOOT**, press and release **RESET**, release **BOOT**, and try again.
 
 Later updates come over WiFi as on the WT32. The board downloads its own image (`SpoolmanScale-waveshare-s3-lcd7.bin`), and the upload in the browser refuses an image built for another board.
+
+#### The 4.3B (untested)
+
+> **Warning:** nothing below has been tried on a board yet. The ESP32-S3-Touch-LCD-4.3B is not a supported board, the Web Flasher does not list it, and getting the sensors connected means removing two parts from it. This is a note for anyone who wants to try, worked out from the [schematic](https://files.waveshare.com/wiki/ESP32-S3-Touch-LCD-4.3B/ESP32-S3-Touch-LCD-4.3B-Sch.pdf), not a build guide.
+
+Same module, panel, touch, SD card and expander as the 7", so the `waveshare-s3-lcd7` image should drive its display without change. The connectors differ. The 4.3B has a 16-pin terminal block with an I2C connector, CAN, RS485 and isolated digital in/out, and nothing else: no UART2 connector, no UART selection switch, no sensor connector. Every ESP32-S3 pin that is free on the 7" is tied up here:
+
+- GPIO43 and GPIO44, the 7"'s sensor bus, belong to the **RS485 transceiver** (SP3485, U7). GPIO43 is the transceiver's receiver output, actively driven whenever the bus is idle. GPIO44 switches the transceiver's direction through R68 (100 Ω) into the base of transistor S1; released, that base junction holds the net at about 0.75 V, so a pull-up alone never gets it high. Neither pin can carry I2C or UART as long as those parts are in place.
+- GPIO15 and GPIO16 drive the CAN transceiver, GPIO6 is the RTC's interrupt, GPIO19 and GPIO20 are USB. None of them is on a connector.
+- The **I2C connector** (D_SDA, D_SCL on the terminal block) is the board's own bus, GPIO8 and GPIO9, with the CH422G on it. The CH422G answers on 0x24, the PN532's address, and takes every byte of a PN532 frame as a mode write: the panel and the touch would be reset and the backlight and SD card switched off. The PN532 cannot go on this bus. The NAU7802 (0x2A) could, but the firmware does not read the scale on this bus.
+
+**The modification: free GPIO43 and GPIO44 from the RS485 circuit**
+
+See the RS485 block of the schematic. Two parts have to go. Afterwards the two pins are exactly the 7"'s sensor bus, both pulled up to 3.3 V with 4.7 kΩ (R64 on GPIO43, R67 on GPIO44), and the unmodified `waveshare-s3-lcd7` image should run the scale.
+
+1. **Disconnect RO from GPIO43:** lift pin 1 of U7, the SP3485 next to the RS485 terminals, or remove U7 entirely. This frees SDA.
+2. **Disconnect S1 from GPIO44:** remove R68, the 100 Ω resistor between the GPIO44 net and the base of S1 (or remove S1). Without this SCL sits at 0.75 V and never reads as high, whatever pull-up is added. This frees SCL.
+3. Solder SDA and SCL to the two pins. The easiest pads are the module's castellations: **pin 37 (TXD0) is GPIO43 = SDA**, **pin 36 (RXD0) is GPIO44 = SCL**. The pad of U7 pin 1 (GPIO43) and the GPIO44-side pad of R68 or R67 carry the same nets.
+4. Power and ground from the terminal block: `I2C_VCC` (3.3 V or 5 V, chosen by a resistor on the board, 3.3 V as shipped) and `GND`.
+
+RS485 is dead after this; nothing else on the board uses it.
+
+| Signal | ESP32-S3 pin | Where on the board | Connect to |
+|---|---|---|---|
+| SDA | GPIO43 | module pin 37 (TXD0), or U7 pad 1 | PN532 SDA + NAU7802 SDA |
+| SCL | GPIO44 | module pin 36 (RXD0), or the R68/R67 pad | PN532 SCL + NAU7802 SCL |
+| GND | GND | terminal block | PN532 GND + NAU7802 GND |
+| Supply | I2C_VCC | terminal block | PN532 VCC + NAU7802 VIN |
+
+The PN532's reset line (GPIO6 on the 7") has no pad on this board. Leave RSTPD_N unconnected; the firmware copes.
+
+**Not implemented: PN532 over RS485**
+
+The only path without soldering would put the NAU7802 on the board's I2C connector and talk to the PN532 in its UART (HSU) mode through the RS485 terminals, with a TTL-to-RS485 converter at the reader. That needs a UART transport for the PN532 (the Adafruit library is I2C and SPI only) and a scale driver that shares the display's I2C bus. Neither exists yet.
+
+**Flashing** is as for the 7", with the USB-C connector: the Web Flasher's Waveshare 7" entry, or `pio run -e waveshare-s3-lcd7 -t upload`. There is a printable [4.3" Spoolman T-Scale](https://makerworld.com/en/models/3500125-4-3-spoolman-t-scale-waveshare-esp32-s3-43b) enclosure.
 
 ### Guition JC3248W535C
 
