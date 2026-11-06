@@ -232,17 +232,22 @@
     <div class="steps">
       <h3>2. Before Flashing</h3>
       <ol>
-        <li data-board="waveshare-s3-lcd7">Connect a <span>USB cable</span> to the connector labelled <span>USB</span>, not the one labelled UART</li>
+        <li data-board="waveshare-s3-lcd7">Plug a <span>data cable</span> into the Type-C labelled <span>UART</span></li>
+        <li data-board="waveshare-s3-lcd7">Set the small switch to <span>UART1</span>, so that port is tied to the ESP32. UART2 sends it to the pin header and the install fails</li>
+        <li data-board="waveshare-s3-lcd7">Click <span>Connect</span>. Choose the <span>CH343 / WCH</span> port. Leave <span>USB JTAG/serial debug unit</span> alone</li>
+        <li data-board="waveshare-s3-lcd7">Click <span>Install SpoolmanScale</span>. On a first flash, tick <span>Erase device</span>, then <span>Next</span>, then <span>Install</span>. A scale already running SpoolmanScale keeps its WiFi, calibration and backend access if that box is left unticked</li>
+        <li data-board="waveshare-s3-lcd7">When the dialog says <span>Installation complete</span>, press <span>RESET</span> if the panel has not restarted. Set WiFi on the screen, or with your phone</li>
+        <li data-board="waveshare-s3-lcd7">Move the switch back to <span>UART2</span> before connecting the sensors</li>
         <li data-board="guition-jc3248w535c" hidden>Connect a <span>USB cable</span> to the USB-C port</li>
         <li data-board="wt32-sc01-plus" hidden>Connect <span>USB cable</span> to PC</li>
         <li data-board="wt32-sc01-plus" hidden>Disconnect debug board <span>(ZXACC-ESPDB)</span></li>
-        <li>Click <span>"Install"</span> below. A scale that is already running SpoolmanScale is offered <span>"Update"</span> instead.</li>
-        <li>Select port &amp; confirm</li>
-        <li>After flashing: enter your <span>WiFi</span> right in the browser, or skip this and set it up on the scale later, on the touchscreen or with your phone.</li>
+        <li data-board="guition-jc3248w535c wt32-sc01-plus" hidden>Click <span>"Install"</span> below. A scale that is already running SpoolmanScale is offered <span>"Update"</span> instead.</li>
+        <li data-board="guition-jc3248w535c wt32-sc01-plus" hidden>Select port &amp; confirm</li>
+        <li data-board="guition-jc3248w535c wt32-sc01-plus" hidden>After flashing: enter your <span>WiFi</span> right in the browser, or skip this and set it up on the scale later, on the touchscreen or with your phone.</li>
       </ol>
     </div>
 
-    <div class="warning">
+    <div class="warning" data-board="guition-jc3248w535c wt32-sc01-plus" hidden>
       <strong>⚠ Your settings</strong>
       <strong>"Update"</strong> keeps everything: WiFi, calibration, backend access.
       If the flasher offers <strong>"Install"</strong> and asks whether to erase the device,
@@ -268,8 +273,9 @@
       Still failing: use the two small buttons on the board, <b>BOOT</b> and
       <b>RST</b> (labelled <b>RESET</b> on the Waveshare).
       Hold <b>BOOT</b>, press and release <b>RST</b>, release <b>BOOT</b>, then
-      click the button again and pick the port. Press <b>RST</b> once when
-      flashing is done.
+      click the button again and pick the port.
+      <span data-board="waveshare-s3-lcd7">On the 7″ that port is the CH343 / WCH entry. The cable stays in the connector labelled UART, with the switch on UART1.</span>
+      Press <b>RST</b> once when flashing is done.
     </details>
 
     <div class="links">
@@ -302,7 +308,7 @@
         });
         if (!found) return false;
         document.querySelectorAll('[data-board]').forEach(function (el) {
-          el.hidden = el.dataset.board !== board;
+          el.hidden = el.dataset.board.split(/\s+/).indexOf(board) === -1;
         });
         return true;
       }

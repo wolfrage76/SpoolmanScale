@@ -49,7 +49,7 @@ For the WT32-SC01 Plus, the original project's enclosure further down this page 
 
 The parts are the same as for the WT32-SC01 Plus (PN532, NAU7802 and load cell, see the hardware list further down), with the Waveshare ESP32-S3-Touch-LCD-7 in place of the WT32. The wiring is not the WT32's:
 
-- The PN532 and the NAU7802 go on the board's **UART2 connector**, and the **UART selection switch** next to it must be set to **UART2**.
+- The PN532 and the NAU7802 go on the board's **UART2 connector**, and the **UART selection switch** next to it must be set to **UART2**. Flashing uses **UART1** and the connector labelled **UART**; the switch goes back to **UART2** before the sensors are connected.
 - **Never connect the PN532 to the board's own I2C connector:** a chip on that bus answers on the same address and the reader would switch the backlight and the SD card off.
 
 Pin table, flashing and everything else that is different on this board: **[Waveshare wiring and setup in BUILDING.md](BUILDING.md#waveshare-esp32-s3-touch-lcd-7)**. The wiring guides on the original project's documentation site describe the WT32-SC01 Plus only.
@@ -62,7 +62,7 @@ Pin table, flashing and everything else that is different on this board: **[Guit
 
 ## Download and updates
 
-**First flash:** open the [Web Flasher](https://wolfrage76.github.io/Waveshare-Spoolman-Scale/) in Chrome or Edge, pick your board, connect it over USB and click the button. Nothing has to be installed.
+**First flash:** open the [Web Flasher](https://wolfrage76.github.io/Waveshare-Spoolman-Scale/) in Chrome or Edge, pick your board, and follow the steps on that page. Nothing has to be installed. On the Waveshare 7" the cable goes in the connector labelled **UART**, with the switch on **UART1**.
 
 The same files are on this repository's [Releases page](https://github.com/wolfrage76/Waveshare-Spoolman-Scale/releases). They are pre-releases for now.
 

@@ -167,7 +167,7 @@ The 7" 800×480 board with the ESP32-S3-WROOM-1-N16R8 module (16 MB flash, 8 MB 
 
 - **The picture** is the same 480×320 UI, enlarged until it fills the 800×480 panel. That makes everything 11 % wider than on the WT32; every screen and every setting is otherwise identical.
 - **Brightness** is applied to the picture, not to the backlight: the board can only switch its backlight on and off. Dimming and "screen off" work as on the WT32.
-- **USB**: use the connector labelled **USB**, not the one labelled UART, for flashing, the serial log and the Web Flasher's WiFi setup.
+- **Two USB sockets.** Programming uses the one labelled **UART**: a data cable, the small switch on **UART1**, and the port the computer calls CH343 or WCH. The one labelled **USB** is the ESP32's own USB and shares its pins with the CAN transceiver. This firmware connects it while the scale is running, which is where the serial log comes out. The bootloader is not on that socket, so an install started there fails as soon as the chip resets.
 - **SD card**: the slot on the board is used for the log, as on the WT32.
 
 **Wiring**
@@ -190,9 +190,9 @@ The load cell connects to the NAU7802 as described above.
 
 **Flashing**
 
-In the browser, with nothing to install: open the [Web Flasher](https://wolfrage76.github.io/Waveshare-Spoolman-Scale/#waveshare-s3-lcd7) in Chrome or Edge, with the board on its **USB** connector.
+In the browser, with nothing to install: open the [Web Flasher](https://wolfrage76.github.io/Waveshare-Spoolman-Scale/#waveshare-s3-lcd7) in Chrome or Edge. Plug a data cable into the connector labelled **UART** and set the switch to **UART1**. Click **Connect** and choose the CH343 / WCH port. Leave any port named **USB JTAG/serial debug unit** alone. Click **Install SpoolmanScale**. On a first flash, tick **Erase device**, then **Next**, then **Install**. A scale that is already running SpoolmanScale keeps its WiFi, calibration and backend access if that box is left unticked. The browser does not offer Wi-Fi on this port: the panel asks on its own screen, or by phone. When the dialog says the installation is complete, press **RESET** if the panel has not restarted. Put the switch back to **UART2** before connecting the sensors.
 
-With PlatformIO, from the repository:
+With PlatformIO, from the repository, cable and switch the same way:
 
 ```
 pio run -e waveshare-s3-lcd7 -t upload
@@ -204,7 +204,7 @@ Or flash a release without building: every release carries `SpoolmanScale-wavesh
 esptool --chip esp32s3 write-flash 0x0 SpoolmanScale-waveshare-s3-lcd7_<version>_factory.bin
 ```
 
-If the board is not found: hold **BOOT**, press and release **RESET**, release **BOOT**, and try again.
+If the board is not found: hold **BOOT**, press and release **RESET**, release **BOOT**, and try again on that same port.
 
 Later updates come over WiFi as on the WT32. The board downloads its own image (`SpoolmanScale-waveshare-s3-lcd7.bin`), and the upload in the browser refuses an image built for another board.
 
